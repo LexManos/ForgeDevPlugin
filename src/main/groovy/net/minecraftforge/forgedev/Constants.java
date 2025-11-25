@@ -12,7 +12,7 @@ final class Constants {
     static final String MAVEN_CENTRAL = "https://repo1.maven.org/maven2/";
 
     static final String MAVENIZER_NAME = "mavenizer";
-    static final String MAVENIZER_VERSION = "0.4.4";
+    static final String MAVENIZER_VERSION = "0.4.9";
     static final String MAVENIZER_DL_URL = FORGE_MAVEN + "net/minecraftforge/minecraft-mavenizer/" + MAVENIZER_VERSION + "/minecraft-mavenizer-" + MAVENIZER_VERSION + ".jar";
     static final String MAVENIZER_MAIN = "net.minecraftforge.mcmaven.cli.Main";
     static final int MAVENIZER_JAVA = 25;

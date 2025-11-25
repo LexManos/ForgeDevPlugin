@@ -46,7 +46,7 @@ abstract class ExtractRangeMap extends S2SExec {
 
     @Inject
     ExtractRangeMap() {
-        this.output.convention(this.defaultOutputFile)
+        this.output.convention(this.getDefaultOutputFile('txt'))
 
         this.sourceCompatibility.convention(
             this.project.extensions.findByType(JavaPluginExtension).toolchain.languageVersion.map(JavaVersion.&toVersion)

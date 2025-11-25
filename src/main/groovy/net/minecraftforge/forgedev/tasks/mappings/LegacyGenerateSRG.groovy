@@ -51,7 +51,7 @@ abstract class LegacyGenerateSRG extends DefaultTask implements ForgeDevTask {
         this.notch.convention(false)
         this.reverse.convention(false)
 
-        this.output.convention(this.defaultOutputFile)
+        this.output.convention(this.getDefaultOutputFile('tsrg'))
     }
 
     @TaskAction
@@ -91,14 +91,16 @@ abstract class LegacyGenerateSRG extends DefaultTask implements ForgeDevTask {
 
         @Override
         void execute() {
-            var input = IMappingFile.load(this.parameters.mcpSrgData.get().asFile).with(true) {
-                boolean notch = this.parameters.notch.getOrElse(false)
+            // Obf -> Srg
+            var input = IMappingFile.load(this.parameters.mcpSrgData.get().asFile)
 
-                // Reverse makes SRG->OBF, chain makes SRG->SRG
-                return !notch ? it.reverse().chain(it) : it
-            }
+            // Srg->Obf->Srg = Srg->Srg
+            boolean notch = this.parameters.notch.getOrElse(false)
+            if (!notch)
+                input = input.reverse().chain(input)
 
             var map = MCPNames.load(this.parameters.mappingsZip.get().asFile)
+            // Srg->Mapped
             var ret = input.rename(renamer(map))
 
             ret.write(

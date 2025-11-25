@@ -155,11 +155,18 @@ public abstract class ForgeDevExtension {
             task.getDependencies().from(compileJava.map(JavaCompile::getClasspath));
         });
 
-        var createMcp2Srg = tasks.register("createMcp2Srg", LegacyGenerateSRG.class, task -> task.getReverse().set(true));
-        var createSrg2Mcp = tasks.register("createSrg2Mcp", LegacyGenerateSRG.class, task -> task.getReverse().set(false));
+        var createMcp2Srg = tasks.register("createMcp2Srg", LegacyGenerateSRG.class, task -> {
+            task.getReverse().set(true);
+            task.getOutput().set(task.getOutputFile("mcp2srg.tsrg"));
+        });
+        var createSrg2Mcp = tasks.register("createSrg2Mcp", LegacyGenerateSRG.class, task -> {
+            task.getReverse().set(false);
+            task.getOutput().set(task.getOutputFile("srg2mcp.tsrg"));
+        });
         var createMcp2Obf = tasks.register("createMcp2Obf", LegacyGenerateSRG.class, task -> {
             task.getNotch().set(true);
             task.getReverse().set(true);
+            task.getOutput().set(task.getOutputFile("mcp2obf.tsrg"));
         });
 
         // TODO DOES NOTHING!
@@ -171,6 +178,7 @@ public abstract class ForgeDevExtension {
             task.getRangeMap().set(extractRangeMap.flatMap(ExtractRangeMap::getOutput));
             task.getSrgFiles().from(createMcp2Srg.flatMap(LegacyGenerateSRG::getOutput));
             task.getExcFiles().from(/*createExc.flatMap(CreateExc::getOutput), */legacyPatcher.getExcs());
+            task.getKeepImports().set(true);
         });
 
         var applyRangeMapBase = tasks.register("applyRangeMapBase", ApplyRangeMap.class, task -> {
@@ -179,6 +187,7 @@ public abstract class ForgeDevExtension {
             task.getRangeMap().set(extractRangeMap.flatMap(ExtractRangeMap::getOutput));
             task.getSrgFiles().from(createMcp2Srg.flatMap(LegacyGenerateSRG::getOutput));
             task.getExcFiles().from(/*createExc.flatMap(CreateExc::getOutput), */legacyPatcher.getExcs());
+            task.getKeepImports().set(true);
         });
 
         var userdevConfig = tasks.register("userdevConfig", GeneratePatcherConfigV2.class);
@@ -336,10 +345,14 @@ public abstract class ForgeDevExtension {
             applyPatches.configure(task -> task.getInput().convention(legacyPatcher.getCleanSrc()));
             genPatches.configure(task -> task.getInput().convention(legacyPatcher.getCleanSrc()));
 
-            var extractSrg = tasks.register("extractSrg", MavenizerMCPDataTask.class, task -> task.getArtifact().set(legacyMcp.getConfig()));
+            var extractSrg = tasks.register("extractSrg", MavenizerMCPDataTask.class, task -> {
+                task.getArtifact().set(legacyMcp.getConfig());
+                task.getOutput().convention(task.getOutputFile("obf2srg.tsrg"));
+            });
             createMcp2Srg.configure(task -> task.getMcpSrgData().convention(extractSrg.flatMap(MavenizerMCPDataTask::getOutput)));
 
-            filterNew.configure(task -> task.getBlacklist().from(jar.flatMap(AbstractArchiveTask::getArchiveFile)));
+            // This was actually filtering the PARENT jar file. Since we don't support parent Patchers anymore, this is not needed.
+            //filterNew.configure(task -> task.getBlacklist().from(jar.flatMap(AbstractArchiveTask::getArchiveFile)));
 
             tasks.withType(LegacyGenerateSRG.class, task -> task.getMappingsZip().fileProvider(mappingsZipFile));
 

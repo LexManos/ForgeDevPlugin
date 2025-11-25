@@ -102,7 +102,7 @@ abstract class LegacyFilterNewJar extends DefaultTask implements ForgeDevTask {
                 for (var entry in entries) {
                     if (entry.directory || filter.contains(entry.name) ||
                         (entry.name.endsWith(".class") && isVanilla(classes, entry.name.substring(0, entry.name.length() - 6)))) {
-                        return
+                        continue
                     }
                     out.putNextEntry(FileUtils.getStableEntry(entry.name))
                     zin.getInputStream(entry).transferTo(out)

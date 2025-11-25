@@ -1,3 +1,9 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        gradlePluginPortal()
+    }
+}
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
@@ -13,14 +19,13 @@ gradle.beforeProject { Project project ->
             mavenCentral()
             gradlePluginPortal()
             maven project.gradleutils.forgeMaven
-            //mavenLocal()
+            mavenLocal()
         }
     }
 }
-
 //@formatter:off
 dependencyResolutionManagement.versionCatalogs.register('libs') {
-    version 'gradleutils', '3.3.24'
+    version 'gradleutils', '3.3.25'
 
     plugin 'licenser',       'net.minecraftforge.licenser'    version '1.2.0'
     plugin 'gradleutils',    'net.minecraftforge.gradleutils' versionRef 'gradleutils'
