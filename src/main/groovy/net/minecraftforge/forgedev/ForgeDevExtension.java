@@ -13,10 +13,10 @@ import net.minecraftforge.forgedev.tasks.launcher.SlimeLauncherExec;
 import net.minecraftforge.forgedev.tasks.mappings.LegacyApplyMappings;
 import net.minecraftforge.forgedev.tasks.mappings.LegacyGenerateSRG;
 import net.minecraftforge.forgedev.tasks.mcp.MavenizerMCPDataTask;
-import net.minecraftforge.forgedev.tasks.mcp.MavenizerMCPMaven;
+import net.minecraftforge.forgedev.tasks.mcp.MavenizerMCPMavenValue;
 import net.minecraftforge.forgedev.tasks.mcp.MavenizerMCPSetup;
 import net.minecraftforge.forgedev.tasks.mcp.MavenizerRawArtifact;
-import net.minecraftforge.forgedev.tasks.mcp.MavenizerSyncMappings;
+import net.minecraftforge.forgedev.tasks.mcp.MavenizerSyncMappingsValue;
 import net.minecraftforge.forgedev.tasks.obfuscation.LegacyReobfuscateJar;
 import net.minecraftforge.forgedev.tasks.patching.binary.CreateBinPatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.ApplyPatches;
@@ -114,9 +114,6 @@ public abstract class ForgeDevExtension {
         var downloadClientMappings = tasks.register("downloadClientMappings", DownloadMappings.class, task -> task.getSide().set("client"));
         var downloadServerMappings = tasks.register("downloadServerMappings", DownloadMappings.class, task -> task.getSide().set("server"));
 
-        var syncMavenizer = Util.runFirst(project, tasks.register("syncMavenizer", MavenizerMCPMaven.class));
-        var syncMavenizerForExtra = Util.runFirst(project, tasks.register("syncMavenizerForExtra", MavenizerMCPMaven.class));
-        var syncMappingsMaven = Util.runFirst(project, tasks.register("syncMappingsMaven", MavenizerSyncMappings.class));
         var minecraftDepsConfiguration = project.getConfigurations().detachedConfiguration();
         var mappingsConfiguration = project.getConfigurations().detachedConfiguration();
 
@@ -137,8 +134,6 @@ public abstract class ForgeDevExtension {
         });
 
         var toMCPConfig = tasks.register("srg2mcp", LegacyApplyMappings.class, task -> {
-            task.dependsOn(syncMappingsMaven);
-
             task.getInput().set(applyPatches.flatMap(ApplyPatches::getOutput));
             task.getMappings().setFrom(mappingsConfiguration);
             task.getLambdas().set(false);
@@ -205,8 +200,6 @@ public abstract class ForgeDevExtension {
         });
 
         var reobfJar = tasks.register("reobfJar", LegacyReobfuscateJar.class, task -> {
-            task.dependsOn(syncMavenizer);
-
             task.getInput().set(jar.flatMap(Jar::getArchiveFile));
             task.getLibraries().from(minecraftDepsConfiguration);
             task.getOutput().convention(task.getDefaultOutputFile());
@@ -304,31 +297,60 @@ public abstract class ForgeDevExtension {
             // TODO Add mappings as a dependency to FG7???
             // Add mappings so that it can be used by reflection tools.
             // net.minecraft:mappings_CHANNEL:VERSION@zip
-            var mappingsDependency = project.getDependencies().create(
-                "net.minecraft:mappings_%s:%s@zip".formatted(legacyPatcher.getMappingChannel().get(), legacyPatcher.getMappingVersion().get())
+            var mappingsDependency = getProviders().zip(
+                getProviders().of(MavenizerSyncMappingsValue.class, spec -> spec.parameters(parameters -> {
+                    parameters.init(plugin, problems);
+                    parameters.getOutput().set(mavenizerRepo);
+                    parameters.getVersion().set(legacyPatcher.getMappingVersion());
+                })),
+                getProviders().zip(legacyPatcher.getMappingChannel(), legacyPatcher.getMappingVersion(), (c, v) -> c + ':' + v),
+                (ret, version) -> {
+                return project.getDependencies().create(
+                    "net.minecraft:mappings_%s@zip".formatted(version)
+                );
+            });
+            var minecraftDependency = getProviders().zip(
+                getProviders().of(MavenizerMCPMavenValue.class, spec -> spec.parameters(parameters -> {
+                    parameters.init(plugin, problems);
+                    parameters.getOutput().set(mavenizerRepo);
+                    parameters.getArtifact().set(legacyMcp.getVersion());
+                })),
+                legacyMcp.getVersion(),
+                (ret, version) -> {
+                    return project.getDependencies().create(
+                        "net.minecraft:joined:" + version,
+                        Closures.<ExternalModuleDependency>consumer(dependency -> {
+                            dependency.attributes(a -> {
+                                a.attributeProvider(OS, getProviders().of(OSValueSource.class, spec -> { }));
+                                a.attributeProvider(MAPPINGS_CHANNEL, legacyPatcher.getMappingChannel());
+                                a.attributeProvider(MAPPINGS_VERSION, legacyPatcher.getMappingVersion());
+                            });
+                        })
+                    );
+                }
             );
-            var minecraftDependency = project.getDependencies().create(
-                "net.minecraft:joined:%s".formatted(legacyMcp.getVersion().get()),
-                Closures.<ExternalModuleDependency>consumer(dependency -> {
-                    dependency.attributes(a -> {
-                        a.attributeProvider(OS, getProviders().of(OSValueSource.class, spec -> { }));
-                        a.attributeProvider(MAPPINGS_CHANNEL, legacyPatcher.getMappingChannel());
-                        a.attributeProvider(MAPPINGS_VERSION, legacyPatcher.getMappingVersion());
-                    });
-                })
+            var minecraftExtraDependency = getProviders().zip(
+                getProviders().of(MavenizerMCPMavenValue.class, spec -> spec.parameters(parameters -> {
+                    parameters.init(plugin, problems);
+                    parameters.getOutput().set(mavenizerRepo);
+                    parameters.getArtifact().set(legacyMcp.getVersion().map(v -> "net.minecraft:client-extra:" + v));
+                })),
+                legacyMcp.getVersion(),
+                (ret, version) -> {
+                    return project.getDependencies().create(
+                        "net.minecraft:client-extra:" + version,
+                        Closures.<ExternalModuleDependency>consumer(dependency -> dependency.setTransitive(false))
+                    );
+                }
             );
-            var minecraftExtraDependency = project.getDependencies().create(
-                "net.minecraft:client-extra:%s".formatted(legacyMcp.getVersion().get()),
-                Closures.<ExternalModuleDependency>consumer(dependency -> dependency.setTransitive(false))
-            );
-            syncMavenizer.configure(task -> task.getArtifact().set(legacyMcp.getVersion()));
-            syncMavenizerForExtra.configure(task -> task.getArtifact().set(legacyMcp.getVersion().map(v -> "net.minecraft:client-extra:" + v)));
-            syncMappingsMaven.configure(task -> task.getVersion().set(legacyPatcher.getMappingVersion()));
-            project.getDependencies().add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, minecraftDependency);
-            project.getDependencies().add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, minecraftExtraDependency);
-            project.getDependencies().add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, mappingsDependency);
-            minecraftDepsConfiguration.withDependencies(d -> d.add(minecraftDependency));
-            mappingsConfiguration.withDependencies(d -> d.add(mappingsDependency));
+            //syncMavenizer.configure(task -> task.getArtifact().set(legacyMcp.getVersion()));
+            //syncMavenizerForExtra.configure(task -> task.getArtifact().set(legacyMcp.getVersion().map(v -> "net.minecraft:client-extra:" + v)));
+            //syncMappingsMaven.configure(task -> task.getVersion().set(legacyPatcher.getMappingVersion()));
+            project.getDependencies().addProvider(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, minecraftDependency);
+            project.getDependencies().addProvider(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, minecraftExtraDependency);
+            project.getDependencies().addProvider(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, mappingsDependency);
+            minecraftDepsConfiguration.withDependencies(d -> d.addLater(minecraftDependency));
+            mappingsConfiguration.withDependencies(d -> d.addLater(mappingsDependency));
 
             // Add the patched source as a source dir during afterEvaluate, to not be overwritten by buildscripts
             main.configure(s -> s.getJava().srcDir(legacyPatcher.getPatchedSrc()));
@@ -365,8 +387,6 @@ public abstract class ForgeDevExtension {
             //filterNew.configure(task -> task.getBlacklist().from(jar.flatMap(AbstractArchiveTask::getArchiveFile)));
 
             tasks.withType(LegacyGenerateSRG.class, task -> {
-                task.dependsOn(syncMappingsMaven);
-
                 task.getMappings().setFrom(mappingsConfiguration);
             });
 
@@ -455,8 +475,6 @@ public abstract class ForgeDevExtension {
             } else {
                 // Remap the 'clean' with out mappings.
                 TaskProvider<LegacyApplyMappings> toMCPClean = tasks.register("srg2mcpClean", LegacyApplyMappings.class, task -> {
-                    task.dependsOn(syncMappingsMaven);
-
                     task.getInput().set(legacyPatcher.getCleanSrc());
                     task.getMappings().setFrom(mappingsConfiguration);
                     task.getLambdas().set(false);
