@@ -53,7 +53,7 @@ abstract class LegacyReobfuscateJar extends ToolExec {
 
     @Inject
     LegacyReobfuscateJar() {
-        super(Tools.FART)
+        super(Tools.RENAMER)
 
         this.preferToolchainJvm.set(true)
 

@@ -5,47 +5,21 @@
 package net.minecraftforge.forgedev;
 
 import net.minecraftforge.gradleutils.shared.Tool;
-import net.minecraftforge.util.download.DownloadUtils;
-import net.minecraftforge.util.hash.HashStore;
-import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.Property;
-import org.gradle.api.provider.Provider;
-import org.gradle.api.provider.ProviderFactory;
-import org.gradle.api.provider.ValueSource;
-import org.gradle.api.provider.ValueSourceParameters;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputFile;
-import org.jetbrains.annotations.Nullable;
-
-import javax.inject.Inject;
-import java.io.File;
-import java.io.IOException;
-
-import static net.minecraftforge.forgedev.ForgeDevPlugin.LOGGER;
 
 public final class Tools {
     private Tools() { }
 
     // EXECUTABLE
-    public static final Tool MAVENIZER = tool(Constants.MAVENIZER_NAME, Constants.MAVENIZER_VERSION, Constants.MAVENIZER_DL_URL, Constants.MAVENIZER_JAVA, Constants.MAVENIZER_MAIN);
-    public static final Tool DIFFPATCH = tool(Constants.DIFFPATCH_NAME, Constants.DIFFPATCH_VERSION, Constants.DIFFPATCH_DL_URL, Constants.DIFFPATCH_JAVA, Constants.DIFFPATCH_MAIN);
-    public static final Tool BINPATCH = tool(Constants.BINPATCH_NAME, Constants.BINPATCH_VERSION, Constants.BINPATCH_DL_URL, Constants.BINPATCH_JAVA, Constants.BINPATCH_MAIN);
-    public static final Tool INSTALLERTOOLS = tool(Constants.INSTALLERTOOLS_NAME, Constants.INSTALLERTOOLS_VERSION, Constants.INSTALLERTOOLS_DL_URL, Constants.INSTALLERTOOLS_JAVA, Constants.INSTALLERTOOLS_MAIN);
-    public static final Tool JARCOMPATIBILITYCHECKER = tool(Constants.JARCOMPATIBILITYCHECKER_NAME, Constants.JARCOMPATIBILITYCHECKER_VERSION, Constants.JARCOMPATIBILITYCHECKER_DL_URL, Constants.JARCOMPATIBILITYCHECKER_JAVA, Constants.JARCOMPATIBILITYCHECKER_MAIN);
-    public static final Tool FART = tool(Constants.FART_NAME, Constants.FART_VERSION, Constants.FART_DL_URL, Constants.FART_JAVA, Constants.FART_MAIN);
-    public static final Tool SRG2SRC = tool(Constants.SRG2SRC_NAME, Constants.SRG2SRC_VERSION, Constants.SRG2SRC_DL_URL, Constants.SRG2SRC_JAVA, Constants.SRG2SRC_MAIN);
-    public static final Tool SLIMELAUNCHER = tool(Constants.SLIMELAUNCHER_NAME, Constants.SLIMELAUNCHER_VERSION, Constants.SLIMELAUNCHER_DL_URL, Constants.SLIMELAUNCHER_JAVA_VERSION, Constants.SLIMELAUNCHER_MAIN);
+    public static final Tool MAVENIZER = Tool.ofForge("mavenizer", "net.minecraftforge:minecraft-mavenizer:0.4.9", 25, "net.minecraftforge.mcmaven.cli.Main");
+    public static final Tool DIFFPATCH = Tool.of("diffpatch", "io.codechicken:DiffPatch:2.1.0.42:all", Constants.MAVEN_CENTRAL, 8);
+    public static final Tool BINPATCH = Tool.ofForge("binpatcher", "net.minecraftforge:binarypatcher:1.2.2:fatjar", 8);
+    public static final Tool INSTALLERTOOLS = Tool.ofForge("installertools", "net.minecraftforge:installertools:1.4.4:fatjar", 8);
+    public static final Tool JARCOMPATIBILITYCHECKER = Tool.ofForge("jarcompatibilitychecker", "net.minecraftforge:JarCompatibilityChecker:0.1.28:all", 8);
+    public static final Tool RENAMER = Tool.ofForge("renamer", "net.minecraftforge:ForgeAutoRenamingTool:1.1.1:all", 8);
+    public static final Tool SRG2SRC = Tool.ofForge("srg2source", "net.minecraftforge:Srg2Source:8.1.1:fatjar", 17);
+    public static final Tool SLIMELAUNCHER = Tool.ofForge("slimelauncher", "net.minecraftforge:slime-launcher:0.1.8", 8, "net.minecraftforge.launcher.Main");
 
     // LIBRARIES
-    public static final Tool SRGUTILS = tool(Constants.SRGUTILS_NAME, Constants.SRGUTILS_VERSION, Constants.SRGUTILS_DL_URL, Constants.SRGUTILS_JAVA);
-    public static final Tool FASTCSV = tool(Constants.FASTCSV_NAME, Constants.FASTCSV_VERSION, Constants.FASTCSV_DL_URL, Constants.FASTCSV_JAVA);
-
-    private static Tool tool(String name, String version, String downloadUrl, int javaVersion) {
-        return Tool.of(name, version, downloadUrl, javaVersion);
-    }
-
-    private static Tool tool(String name, String version, String downloadUrl, int javaVersion, String mainClass) {
-        return Tool.of(name, version, downloadUrl, javaVersion, mainClass);
-    }
+    public static final Tool SRGUTILS = Tool.ofForge("srgutils", "net.minecraftforge:srgutils:0.5.14", 8);
+    public static final Tool FASTCSV = Tool.of("fastcsv", "de.siegmar:fastcsv:3.7.0", Constants.MAVEN_CENTRAL, 11);
 }

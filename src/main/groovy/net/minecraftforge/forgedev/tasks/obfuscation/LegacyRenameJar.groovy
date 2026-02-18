@@ -49,7 +49,7 @@ abstract class LegacyRenameJar extends ToolExec {
 
     @Inject
     LegacyRenameJar() {
-        super(Tools.FART)
+        super(Tools.RENAMER)
 
         this.preferToolchainJvm.set(true)
 
