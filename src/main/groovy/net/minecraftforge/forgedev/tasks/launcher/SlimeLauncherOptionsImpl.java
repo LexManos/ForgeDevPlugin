@@ -321,7 +321,8 @@ public abstract class SlimeLauncherOptionsImpl implements SlimeLauncherOptionsIn
 
             target.systemProperties(child.getSystemProperties().getOrElse(Map.of()));
 
-            target.getWorkingDir().set(child.getWorkingDir());
+            if (child.getWorkingDir().isPresent())
+                target.getWorkingDir().set(child.getWorkingDir());
         }
 
         return target;

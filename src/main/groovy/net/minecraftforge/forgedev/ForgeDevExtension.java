@@ -28,6 +28,7 @@ import net.minecraftforge.forgedev.tasks.srg2source.ExtractRangeMap;
 import net.minecraftforge.gradleutils.shared.Closures;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
@@ -95,6 +96,11 @@ public abstract class ForgeDevExtension {
         return this.mavenizerRepo;
     }
 
+    private Configuration minecraftDepsConfiguration;
+    public Configuration getMinecraftConfiguration() {
+        return this.minecraftDepsConfiguration;
+    }
+
     private void setup(ForgeDevPlugin plugin, Project project) {
         var tasks = project.getTasks();
 
@@ -114,7 +120,7 @@ public abstract class ForgeDevExtension {
         var downloadClientMappings = tasks.register("downloadClientMappings", DownloadMappings.class, task -> task.getSide().set("client"));
         var downloadServerMappings = tasks.register("downloadServerMappings", DownloadMappings.class, task -> task.getSide().set("server"));
 
-        var minecraftDepsConfiguration = project.getConfigurations().detachedConfiguration();
+        minecraftDepsConfiguration = project.getConfigurations().detachedConfiguration();
         var mappingsConfiguration = project.getConfigurations().detachedConfiguration();
 
         var applyPatches = tasks.register("applyPatches", ApplyPatches.class, task -> {

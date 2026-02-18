@@ -19,6 +19,7 @@ import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
@@ -31,14 +32,16 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 public class CheckForgeJarCompatibility {
+    private static final String TASK_NAME = "checkJarCompatibility";
+
     public static TaskProvider<CheckJarCompatibility> register(Project project, String minecraftVersion, Action<? super CheckJarCompatibility> action) {
-        if (project.getTasks().getNames().contains("setupCheckJarCompatibility"))
-            throw new IllegalStateException("Cannot register setupCheckJarCompatibility more than once");
+        if (project.getTasks().getNames().contains(TASK_NAME))
+            throw new IllegalStateException("Cannot register " + TASK_NAME + " more than once");
 
         var baseForgeVersion = project.getObjects().property(String.class).value(project.getProviders().of(LatestForgeVersion.class, LatestForgeVersion.parameters(project, minecraftVersion)));
         Spec<? super Task> baseForgeVersionOnlyIf = t -> baseForgeVersion.isPresent();
-        var baseForgeUserdev = project.getLayout().getBuildDirectory().file(project.provider(() -> "setupCheckJarCompatibility/forge-" + baseForgeVersion.getOrElse("null") + "-userdev.jar"));
-        var baseForgeUniversal = project.getLayout().getBuildDirectory().file(project.provider(() -> "setupCheckJarCompatibility/forge-" + baseForgeVersion.getOrElse("null") + "-universal.jar"));
+        var baseForgeUserdev = project.getLayout().getBuildDirectory().file(project.provider(() -> TASK_NAME + "/forge-" + baseForgeVersion.getOrElse("null") + "-userdev.jar"));
+        var baseForgeUniversal = project.getLayout().getBuildDirectory().file(project.provider(() -> TASK_NAME + "/forge-" + baseForgeVersion.getOrElse("null") + "-universal.jar"));
 
         var downloadBaseForgeUserdev = project.getTasks().register("downloadBaseForgeUserdev", Download.class, task -> {
             task.setDescription("Sets up JAR compatibility checking by downloading the latest available UserDev.");
@@ -87,7 +90,7 @@ public class CheckForgeJarCompatibility {
         });
 
         var reobfJar = project.getTasks().named("reobfJar", LegacyReobfuscateJar.class);
-        var checkJarCompatibility = project.getTasks().register("checkJarCompatibility", CheckJarCompatibility.class, task -> {
+        var checkJarCompatibility = project.getTasks().register(TASK_NAME, CheckJarCompatibility.class, task -> {
             var rawJoinedJarSrg = task.getProject().getTasks().named("rawJoinedJarSrg", MavenizerRawArtifact.class);
 
             task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
@@ -105,7 +108,7 @@ public class CheckForgeJarCompatibility {
     }
 
     static abstract class UserdevBinPatches extends DefaultTask {
-        protected abstract @Input @Optional RegularFileProperty getBaseForgeUserdev();
+        protected abstract @InputFile @Optional RegularFileProperty getBaseForgeUserdev();
 
         abstract @OutputFile RegularFileProperty getBaseBinPatchesOutput();
 
