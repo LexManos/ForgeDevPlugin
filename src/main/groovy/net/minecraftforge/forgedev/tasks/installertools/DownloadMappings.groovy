@@ -12,6 +12,7 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
+import org.gradle.process.ExecResult
 
 import javax.inject.Inject
 
@@ -28,6 +29,11 @@ abstract class DownloadMappings extends ToolExec {
 
         this.output.convention(this.getDefaultOutputFile('tsrg'))
         this.standardOutputLogLevel.set(LogLevel.INFO)
+    }
+
+    @Override
+    protected ExecResult exec() {
+        return super.exec().rethrowFailure().assertNormalExitValue()
     }
 
     @Override
