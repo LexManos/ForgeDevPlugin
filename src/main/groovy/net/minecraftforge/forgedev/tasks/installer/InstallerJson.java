@@ -4,7 +4,8 @@
  */
 package net.minecraftforge.forgedev.tasks.installer;
 
-import groovy.json.JsonBuilder;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import net.minecraftforge.forgedev.legacy.tasks.Util;
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
@@ -38,6 +39,8 @@ import java.util.Map;
 import java.util.Set;
 
 public abstract class InstallerJson extends DefaultTask {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
     protected abstract @Inject ProviderFactory getProviders();
     protected abstract @Inject ObjectFactory getObjects();
 
@@ -190,7 +193,7 @@ public abstract class InstallerJson extends DefaultTask {
         json.put("welcome",  getWelcome().get());
 
         var output = getOutput().get().getAsFile().toPath();
-        var jsonData = new JsonBuilder(json).toPrettyString();
+        var jsonData = GSON.toJson(json);
         Files.writeString(output, jsonData);
     }
 }
