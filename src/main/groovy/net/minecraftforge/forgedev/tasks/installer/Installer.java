@@ -43,6 +43,7 @@ public abstract class Installer {
     private final String name;
     // Public facing tasks
     private final TaskProvider<InstallerJar> jar;
+    private final TaskProvider<InstallerJarConfig> jarConfig;
     private final TaskProvider<InstallerJson> json;
     private final TaskProvider<LauncherJson> launcherJson;
 
@@ -50,19 +51,20 @@ public abstract class Installer {
     private final TaskProvider<DownloadDependency> base;
 
     @Input
-    public abstract Property<Boolean> getCi();
+    public abstract Property<Boolean> getDev();
     @Input
     public abstract Property<Boolean> getOffline();
 
     @Inject
-    public Installer(Project project, String name, TaskProvider<InstallerJar> jar, TaskProvider<InstallerJson> json, TaskProvider<LauncherJson> launcherJson, TaskProvider<DownloadDependency> base) {
+    public Installer(Project project, String name, TaskProvider<InstallerJar> jar, TaskProvider<InstallerJarConfig> jarConfig, TaskProvider<InstallerJson> json, TaskProvider<LauncherJson> launcherJson, TaskProvider<DownloadDependency> base) {
         this.project = project;
         this.name = name;
         this.jar = jar;
+        this.jarConfig = jarConfig;
         this.json = json;
         this.launcherJson = launcherJson;
         this.base = base;
-        this.getCi().convention(false);
+        this.getDev().convention(false);
         this.getOffline().convention(false);
     }
     public String getName() { return this.name; }
@@ -94,7 +96,7 @@ public abstract class Installer {
     public Tool tool(Object dependency, boolean transitive) {
         var gav = Util.asArtifactString(dependency);
         var tree = MinimalResolvedArtifact.from(project, gav, transitive).get();
-        this.jar.configure(task -> {
+        this.jarConfig.configure(task -> {
             for (var artifact : tree)
                 task.library(project.provider(() -> artifact), noop());
         });
@@ -132,12 +134,12 @@ public abstract class Installer {
     }
     public void library(Provider<MinimalResolvedArtifact> info, Action<LibraryInfo> action) {
         this.getJson().configure(task -> task.library(info, action));
-        this.getJar().configure(task -> task.library(info, action));
+        this.jarConfig.configure(task -> task.library(info, action));
     }
 
     public void launcherLibraries(Configuration configuration) {
         this.getLauncherJson().configure(task -> task.libraries(configuration));
-        this.getJar().configure(task -> task.libraries(MinimalResolvedArtifact.from(project, configuration)));
+        this.jarConfig.configure(task -> task.libraries(configuration));
     }
     public void launcherLibrary(String artifact) {
         launcherLibrary(artifact, noop());
@@ -162,7 +164,7 @@ public abstract class Installer {
     }
     public void launcherLibrary(Provider<MinimalResolvedArtifact> info, Action<LibraryInfo> action) {
         this.getLauncherJson().configure(task -> task.library(info, action));
-        this.getJar().configure(task -> task.library(info, action));
+        this.jarConfig.configure(task -> task.library(info, action));
     }
 
 
@@ -192,17 +194,19 @@ public abstract class Installer {
         var self = project.getProviders().provider(() -> holder.value);
 
         var base = DownloadDependency.register(project, name + "DownloadBase", Tools.INSTALLER.getModule().toString());
-        var jar = tasks.register(name + "Jar", InstallerJar.class, self);
+        var jarConfig = tasks.register(name + "JarConfig", InstallerJarConfig.class, self);
+        var jar = tasks.register(name + "Jar", InstallerJar.class);
         var json = tasks.register(name + "Json", InstallerJson.class);
         var launcherJson = tasks.register(name + "LauncherJson", LauncherJson.class);
 
         var baseDir = project.getLayout().getBuildDirectory().dir(name).get();
-        var ret = project.getObjects().newInstance(Installer.class, project, name, jar, json, launcherJson, base);
+        var ret = project.getObjects().newInstance(Installer.class, project, name, jar, jarConfig, json, launcherJson, base);
         holder.value = ret;
-        ret.getCi().convention(ext.isCi());
+        ret.getDev().convention(!ext.isCi());
 
         jar.configure(task -> {
             task.getArchiveClassifier().set(Util.kebab(name));
+            task.dependsOn(jarConfig);
 
             task.from(
                 json,

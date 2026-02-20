@@ -83,7 +83,6 @@ public abstract class LauncherJson extends DefaultTask {
     }
     @ApiStatus.Internal
     public void library(Provider<MinimalResolvedArtifact> info, Action<LibraryInfo> action) {
-        getLogger().lifecycle("Library: " + info);
         this.getInput().from(info.map(MinimalResolvedArtifact::file));
         this.getLibraries().add(info.map(LibraryInfo::from).map(LibraryInfo.apply(action)));
     }

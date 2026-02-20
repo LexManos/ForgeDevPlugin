@@ -1,0 +1,121 @@
+/*
+ * Copyright (c) Forge Development LLC and contributors
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+package net.minecraftforge.forgedev.tasks.installer;
+
+import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
+import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
+import net.minecraftforge.util.download.DownloadUtils;
+import org.gradle.api.Action;
+import org.gradle.api.DefaultTask;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.DuplicatesStrategy;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.TaskAction;
+import org.jetbrains.annotations.ApiStatus;
+import org.jspecify.annotations.Nullable;
+
+import javax.inject.Inject;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
+
+@ApiStatus.Internal
+public abstract class InstallerJarConfig extends DefaultTask {
+    private final Provider<Installer> installer;
+
+    @InputFiles abstract ConfigurableFileCollection getInput();
+    @Input abstract Property<Boolean> getDev();
+    @Input abstract Property<Boolean> getOffline();
+    @Input abstract ListProperty<MinimalResolvedArtifact> getLibraries();
+    private final Map<Provider<String>, Action<LibraryInfo>> actions = new IdentityHashMap<>();
+
+    @Inject
+    public InstallerJarConfig(Provider<Installer> installer) {
+        this.installer = installer;
+        this.getDev().convention(installer.flatMap(Installer::getDev));
+        this.getOffline().convention(installer.flatMap(Installer::getOffline));
+    }
+
+    @TaskAction
+    protected void exec() {
+        var actions = new HashMap<String, Action<LibraryInfo>>();
+        for (var entry : this.actions.entrySet()) {
+            actions.put(entry.getKey().get(), entry.getValue());
+        }
+
+        for (var artifact :  getLibraries().get()) {
+            var action = actions.get(artifact.info().name());
+            pack(artifact, action);
+        }
+    }
+
+    @ApiStatus.Internal
+    public void libraries(Configuration config) {
+        this.getInput().from(config);
+        this.getLibraries().addAll(MinimalResolvedArtifact.from(getProject(), config));
+    }
+
+    @ApiStatus.Internal
+    public void library(Provider<MinimalResolvedArtifact> info, Action<LibraryInfo> action) {
+        this.getInput().from(info.map(MinimalResolvedArtifact::file));
+        this.getLibraries().add(info);
+        actions.put(info.map(artifact -> artifact.info().name()), action);
+    }
+
+    private void pack(MinimalResolvedArtifact resolved, @Nullable Action<LibraryInfo> action) {
+        var info = LibraryInfo.from(resolved);
+        if (action != null)
+            action.execute(info);
+
+        var artifact = info.downloads().artifact();
+        var offline = getOffline().get();
+
+        // If we are not making an offline installer, and we're on the CI don't check remote, assume we're gunna publish everything
+        if (!offline && !getDev().get()) {
+            //getProject().getLogger().lifecycle("Skipping: " + artifact.path);
+            return;
+        }
+
+        // If it's an offline jar, always pack
+        var pack = offline || artifact.url.isEmpty();
+
+        // If it's not, Check if the remote
+        if (!pack) {
+            try {
+                // See if the remote hash is the same as ours
+                var remote = DownloadUtils.downloadString(artifact.url + ".sha1");
+                pack = !artifact.sha1.equals(remote);
+            } catch (FileNotFoundException e) {
+                // The file doesn't exist, Mojang's maven doesn't include them, so assume it exists if it's on there.
+                pack = !artifact.url.startsWith("https://libraries.minecraft.net/");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        if (!pack) {
+            //getProject().getLogger().lifecycle("Skipping: " + artifact.path);
+            return;
+        }
+
+        this.installer.get().getJar().configure(task -> {
+            task.from(resolved.file(), spec -> {
+                spec.rename(name -> {
+                    var path = resolved.info().path();
+                    getProject().getLogger().lifecycle("Adding: " + path);
+                    return "maven/" + path;
+                });
+                spec.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
+            });
+        });
+    }
+}

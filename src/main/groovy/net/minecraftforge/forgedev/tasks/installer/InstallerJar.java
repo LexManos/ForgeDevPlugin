@@ -4,26 +4,17 @@
  */
 package net.minecraftforge.forgedev.tasks.installer;
 
-import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
-import net.minecraftforge.util.download.DownloadUtils;
-import org.gradle.api.Action;
 import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.bundling.Zip;
 import org.jetbrains.annotations.ApiStatus;
 
 import javax.inject.Inject;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.List;
 
 public abstract class InstallerJar extends Zip {
-    private final Provider<Installer> installer;
-
     @Inject
-    public InstallerJar(Provider<Installer> installer) {
-        this.installer = installer;
+    public InstallerJar() {
         // We have to `set` here because the default plugin forces the conventions after the task is created
         // But since configuration is done in order, callers can override in their actions
         this.getArchiveClassifier().set("installer");
@@ -43,49 +34,5 @@ public abstract class InstallerJar extends Zip {
             });
             spec.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
         });
-    }
-
-    @ApiStatus.Internal
-    public void libraries(Provider<List<MinimalResolvedArtifact>> libraries) {
-        // TODO: [ForgeDev][LazyConfig] See if we can trick CopySpec into allowing an empty list
-        for (var artifact : libraries.get()) {
-            library(this.getProject().provider(() -> artifact), lib -> {});
-        }
-    }
-
-    @ApiStatus.Internal
-    public void library(Provider<MinimalResolvedArtifact> provider, Action<LibraryInfo> action) {
-        // TODO: [ForgeDev][LazyConfig] See if we can trick CopySpec into allowing an empty list
-        var info = provider.map(LibraryInfo::from).map(LibraryInfo.apply(action)).get();
-        var artifact = info.downloads().artifact();
-        var offline = installer.get().getOffline().get();
-
-        // If we are not making an offline installer, and we're on the CI don't check remote, assume we're gunna publish everything
-        if (!offline && installer.get().getCi().get()) {
-            getProject().getLogger().lifecycle("Skipping: " + artifact.path);
-            return;
-        }
-
-        // If it's an offline jar, always pack
-        var pack = offline || artifact.url.isEmpty();
-
-        // If it's not, Check if the remote
-        if (!pack) {
-            try {
-                // See if the remote hash is the same as ours
-                var remote = DownloadUtils.downloadString(artifact.url + ".sha1");
-                pack = !artifact.sha1.equals(remote);
-            } catch (FileNotFoundException e) {
-                // The file doesn't exist, Mojang's maven doesn't include them, so assume it exists if it's on there.
-                pack = !artifact.url.startsWith("https://libraries.minecraft.net/");
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        if (pack)
-            pack(provider);
-        else
-            getProject().getLogger().lifecycle("Skipping: " + artifact.path);
     }
 }
