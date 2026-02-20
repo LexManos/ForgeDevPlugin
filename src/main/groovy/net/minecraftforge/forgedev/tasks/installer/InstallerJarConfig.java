@@ -11,6 +11,7 @@ import net.minecraftforge.util.download.DownloadUtils;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.file.ArchiveOperations;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.provider.ListProperty;
@@ -21,7 +22,6 @@ import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.TaskProvider;
 import org.jetbrains.annotations.ApiStatus;
-import org.jspecify.annotations.Nullable;
 
 import javax.inject.Inject;
 import java.io.FileNotFoundException;
@@ -42,6 +42,8 @@ public abstract class InstallerJarConfig extends DefaultTask {
     @Input abstract ListProperty<MinimalResolvedArtifact> getLibraries();
     private final Map<Provider<String>, Action<LibraryInfo>> actions = new IdentityHashMap<>();
 
+    @Inject protected abstract ArchiveOperations getArchiveOperations();
+
     @Inject
     public InstallerJarConfig(Provider<Installer> installer, TaskProvider<DownloadDependency> base) {
         this.installer = installer;
@@ -54,10 +56,16 @@ public abstract class InstallerJarConfig extends DefaultTask {
     protected void exec() {
         // Add the base here, so that the buildscript configuration runs first
         installer.get().jar( task -> {
-            task.from(getProject().zipTree(base.map(DownloadDependency::getOutput)), cfg -> {
+            task.from(getArchiveOperations().zipTree(base.map(DownloadDependency::getOutput)), cfg -> {
                 cfg.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
             });
         });
+
+        // If we are not making an offline installer, and we're on the CI don't check remote, assume we're gunna publish everything
+        if (!getOffline().get() && !getDev().get()) {
+            //getLogger().lifecycle("Skipping: " + artifact.path);
+            return;
+        }
 
         var actions = new HashMap<String, Action<LibraryInfo>>();
         for (var entry : this.actions.entrySet()) {
@@ -65,6 +73,7 @@ public abstract class InstallerJarConfig extends DefaultTask {
         }
 
         var seen = new HashSet<String>();
+        // TODO: [ForgeDev][Optimization] Thread this, as it takes 30s/build because of all the network requests
         for (var artifact : getLibraries().get()) {
             var info = LibraryInfo.from(artifact);
             var action = actions.get(artifact.info().name());
@@ -94,16 +103,9 @@ public abstract class InstallerJarConfig extends DefaultTask {
 
     private void pack(MinimalResolvedArtifact resolved, LibraryInfo info) {
         var artifact = info.downloads().artifact();
-        var offline = getOffline().get();
 
-        // If we are not making an offline installer, and we're on the CI don't check remote, assume we're gunna publish everything
-        if (!offline && !getDev().get()) {
-            //getProject().getLogger().lifecycle("Skipping: " + artifact.path);
-            return;
-        }
-
-        // If it's an offline jar, always pack
-        var pack = offline || artifact.url.isEmpty();
+        // If it's an offline jar, or generated artifact always pack
+        var pack = getOffline().get() || artifact.url.isEmpty();
 
         // If it's not, Check if the remote
         if (!pack) {
@@ -120,14 +122,14 @@ public abstract class InstallerJarConfig extends DefaultTask {
         }
 
         if (!pack) {
-            //getProject().getLogger().lifecycle("Skipping: " + artifact.path);
+            //getLogger().lifecycle("Skipping: " + artifact.path);
             return;
         }
 
         this.installer.get().getJar().configure(task -> {
             task.from(resolved.file(), spec -> {
                 spec.rename(name -> {
-                    getProject().getLogger().lifecycle("Adding: " + artifact.path);
+                    getLogger().lifecycle("Adding: " + artifact.path);
                     return "maven/" + artifact.path;
                 });
                 spec.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
