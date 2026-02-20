@@ -39,7 +39,10 @@ import java.util.Map;
 import java.util.Set;
 
 public abstract class InstallerJson extends DefaultTask {
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder()
+        .disableHtmlEscaping()
+        .setPrettyPrinting()
+        .create();
 
     protected abstract @Inject ProviderFactory getProviders();
     protected abstract @Inject ObjectFactory getObjects();

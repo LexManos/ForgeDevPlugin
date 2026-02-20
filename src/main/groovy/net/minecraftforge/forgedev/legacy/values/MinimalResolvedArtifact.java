@@ -6,6 +6,7 @@ package net.minecraftforge.forgedev.legacy.values;
 
 import net.minecraftforge.forgedev.legacy.tasks.Util;
 import org.gradle.api.Project;
+import org.gradle.api.Transformer;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ProjectDependency;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
@@ -49,31 +50,18 @@ public record MinimalResolvedArtifact(MavenInfo info, File file) implements Seri
 
     public static Provider<List<MinimalResolvedArtifact>> from(Project project, Configuration configuration) {
         var ret = project.getObjects().listProperty(MinimalResolvedArtifact.class);
-
-        var configurations = project.getConfigurations();
-
-        // Find any artifacts from the 'installer' config
-        // This config specifies the runtime files we intend for the installer to have.
-        // And are typically what we would be developing and testing alongside Forge.
-        // So we may have local modified versions
-        for (var dependency : configuration.getDependencies()) {
-            if (dependency instanceof ProjectDependency projectDependency) {
-                from(project, projectDependency, ret);
-            } else {
-                var c = configurations.detachedConfiguration(dependency);
-                ret.addAll(c.getIncoming().getArtifacts().getResolvedArtifacts().map(MinimalResolvedArtifact::transform));
-            }
-        }
-
+        ret.addAll(configuration.getIncoming().getArtifacts().getResolvedArtifacts().map(transform(project)));
         return Util.finalize(project, ret);
     }
 
-    private static List<MinimalResolvedArtifact> transform(Set<ResolvedArtifactResult> results) {
-        var artifacts = new ArrayList<MinimalResolvedArtifact>(results.size());
-        for (var artifact : results) {
-            artifacts.add(MinimalResolvedArtifact.from(null, artifact));
-        }
-        return artifacts;
+    private static Transformer<List<MinimalResolvedArtifact>, Set<ResolvedArtifactResult>> transform(Project project) {
+        return results -> {
+            var artifacts = new ArrayList<MinimalResolvedArtifact>(results.size());
+            for (var artifact : results) {
+                artifacts.add(MinimalResolvedArtifact.from(project, artifact));
+            }
+            return artifacts;
+        };
     }
 
     public static Provider<MinimalResolvedArtifact> single(Project project, String artifact) {
@@ -92,7 +80,7 @@ public record MinimalResolvedArtifact(MavenInfo info, File file) implements Seri
             project.getDependencies().create(artifact)
         );
         c.setTransitive(transitive);
-        ret.set(c.getIncoming().getArtifacts().getResolvedArtifacts().map(MinimalResolvedArtifact::transform));
+        ret.set(c.getIncoming().getArtifacts().getResolvedArtifacts().map(transform(project)));
         return Util.finalize(project, ret);
     }
 
