@@ -104,6 +104,17 @@ public class CheckForgeJarCompatibility {
             task.getInputJar().set(reobfJar.flatMap(LegacyReobfuscateJar::getOutput));
         });
         checkJarCompatibility.configure(action);
+
+        var providers = project.getProviders();
+        var hasMaven = providers.environmentVariable("MAVEN_USER").isPresent() && providers.environmentVariable("MAVEN_PASSWORD").isPresent();
+        var checkCompatibility = providers.gradleProperty("net.minecraftforge.forge.build.check.compatibility").map(Boolean::parseBoolean).getOrElse(false);
+
+        if (!hasMaven && checkCompatibility) {
+            project.getTasks().named("check", task -> {
+                task.dependsOn(checkJarCompatibility);
+            });
+        }
+
         return checkJarCompatibility;
     }
 

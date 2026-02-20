@@ -5,22 +5,39 @@
 package net.minecraftforge.forgedev.legacy.values;
 
 import net.minecraftforge.forgedev.legacy.tasks.Util;
+import org.gradle.api.Action;
 import org.gradle.api.Project;
+import org.gradle.api.Transformer;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.AbstractArchiveTask;
+import org.gradle.plugins.ide.eclipse.model.Library;
 
 import java.io.File;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
 public record LibraryInfo(String name, Downloads downloads) implements Serializable {
     public record Downloads(ArtifactInfo artifact) implements Serializable {
-        public record ArtifactInfo(String path, String url, String sha1, long size) implements Serializable {
+        public static class ArtifactInfo  implements Serializable {
+            public String path;
+            public String url;
+            public String sha1;
+            public long size;
+
+            public ArtifactInfo(String path, String url, String sha1, long size) {
+                this.path = path;
+                this.url = url;
+                this.sha1 = sha1;
+                this.size = size;
+            }
+
             public ArtifactInfo validateUrl(boolean offline) {
                 if (offline || !url.startsWith("https://libraries.minecraft.net/"))
                     return this;
@@ -57,39 +74,46 @@ public record LibraryInfo(String name, Downloads downloads) implements Serializa
         return from(dependencies, Boolean.valueOf(validateUrl));
     }
 
+    public static LibraryInfo from(MinimalResolvedArtifact dependency) {
+        var info = dependency.info();
+        var url = "https://libraries.minecraft.net/" + info.path();
+        if (!Util.checkExists(url))
+            url = "https://maven.minecraftforge.net/" + info.path();
+
+        var file = dependency.file();
+        var sha1 = Util.sha1(dependency.file());
+
+        return new LibraryInfo(
+            info.name(),
+            info.path(),
+            url,
+            sha1,
+            file.length()
+        );
+    }
+
     private static Map<String, LibraryInfo> from(Collection<MinimalResolvedArtifact> dependencies, Boolean offline) {
-        var ret = new HashMap<String, LibraryInfo>(dependencies.size());
+        var ret = new LinkedHashMap<String, LibraryInfo>(dependencies.size());
         var semaphore = new Semaphore(1, true);
         dependencies.parallelStream().forEachOrdered(dependency -> {
-            var info = dependency.info();
-            var url = "https://libraries.minecraft.net/" + info.path();
-            if (!Util.checkExists(url))
-                url = "https://maven.minecraftforge.net/" + info.path();
-
-            var file = dependency.file();
-            var sha1 = Util.sha1(dependency.file());
+            var library = from(dependency);
+            if (offline != null)
+                library = library.validateUrl(offline);
 
             try {
                 semaphore.acquire();
+                ret.put(dependency.info().key(), library);
+                semaphore.release();
             } catch (InterruptedException e) {
                 throw new RuntimeException("Interrupted while trying to get library info for " + dependency.info(), e);
             }
-
-            var library = new LibraryInfo(
-                info.name(),
-                info.path(),
-                url,
-                sha1,
-                file.length()
-            );
-            if (offline != null)
-                library = library.validateUrl(offline);
-            ret.put(info.key(), library);
-
-            semaphore.release();
         });
 
         return ret;
+    }
+
+    public static Provider<LibraryInfo> from(Project project, TaskProvider<? extends AbstractArchiveTask> task) {
+        return MinimalResolvedArtifact.from(project, task).map(LibraryInfo::from);
     }
 
     @SafeVarargs
@@ -100,17 +124,21 @@ public record LibraryInfo(String name, Downloads downloads) implements Serializa
         }
 
         var ret = project.getObjects().mapProperty(String.class, LibraryInfo.class).value(dependencies.map(LibraryInfo::from));
-
-        ret.disallowChanges();
-        ret.finalizeValueOnRead();
-        if (project.getState().getExecuted()) {
-            ret.finalizeValue();
-        }
-
-        return ret;
+        return Util.finalize(project, ret);
     }
 
     public static Provider<Map<String, LibraryInfo>> from(Project project, Configuration configuration) {
         return MinimalResolvedArtifact.from(project, configuration).map(LibraryInfo::from);
+    }
+
+    public static List<LibraryInfo> toList(List<MinimalResolvedArtifact> list) {
+        return list.stream().map(LibraryInfo::from).toList();
+    }
+
+    public static Transformer<LibraryInfo, LibraryInfo> apply(Action<LibraryInfo> action) {
+        return info -> {
+            action.execute(info);
+            return info;
+        };
     }
 }
