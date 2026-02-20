@@ -4,6 +4,7 @@
  */
 package net.minecraftforge.forgedev.tasks.installer;
 
+import net.minecraftforge.forgedev.legacy.tasks.DownloadDependency;
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
 import net.minecraftforge.util.download.DownloadUtils;
@@ -18,6 +19,7 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.TaskProvider;
 import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.Nullable;
 
@@ -25,12 +27,14 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
 @ApiStatus.Internal
 public abstract class InstallerJarConfig extends DefaultTask {
     private final Provider<Installer> installer;
+    private final TaskProvider<DownloadDependency> base;
 
     @InputFiles abstract ConfigurableFileCollection getInput();
     @Input abstract Property<Boolean> getDev();
@@ -39,22 +43,39 @@ public abstract class InstallerJarConfig extends DefaultTask {
     private final Map<Provider<String>, Action<LibraryInfo>> actions = new IdentityHashMap<>();
 
     @Inject
-    public InstallerJarConfig(Provider<Installer> installer) {
+    public InstallerJarConfig(Provider<Installer> installer, TaskProvider<DownloadDependency> base) {
         this.installer = installer;
+        this.base = base;
         this.getDev().convention(installer.flatMap(Installer::getDev));
         this.getOffline().convention(installer.flatMap(Installer::getOffline));
     }
 
     @TaskAction
     protected void exec() {
+        // Add the base here, so that the buildscript configuration runs first
+        installer.get().jar( task -> {
+            task.from(getProject().zipTree(base.map(DownloadDependency::getOutput)), cfg -> {
+                cfg.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
+            });
+        });
+
         var actions = new HashMap<String, Action<LibraryInfo>>();
         for (var entry : this.actions.entrySet()) {
             actions.put(entry.getKey().get(), entry.getValue());
         }
 
-        for (var artifact :  getLibraries().get()) {
+        var seen = new HashSet<String>();
+        for (var artifact : getLibraries().get()) {
+            var info = LibraryInfo.from(artifact);
             var action = actions.get(artifact.info().name());
-            pack(artifact, action);
+            if (action != null)
+                action.execute(info);
+
+            // Check for duplicates without pinging remote servers
+            if (!seen.add(info.downloads().artifact().path))
+                continue;
+
+            pack(artifact, info);
         }
     }
 
@@ -71,11 +92,7 @@ public abstract class InstallerJarConfig extends DefaultTask {
         actions.put(info.map(artifact -> artifact.info().name()), action);
     }
 
-    private void pack(MinimalResolvedArtifact resolved, @Nullable Action<LibraryInfo> action) {
-        var info = LibraryInfo.from(resolved);
-        if (action != null)
-            action.execute(info);
-
+    private void pack(MinimalResolvedArtifact resolved, LibraryInfo info) {
         var artifact = info.downloads().artifact();
         var offline = getOffline().get();
 
@@ -110,9 +127,8 @@ public abstract class InstallerJarConfig extends DefaultTask {
         this.installer.get().getJar().configure(task -> {
             task.from(resolved.file(), spec -> {
                 spec.rename(name -> {
-                    var path = resolved.info().path();
-                    getProject().getLogger().lifecycle("Adding: " + path);
-                    return "maven/" + path;
+                    getProject().getLogger().lifecycle("Adding: " + artifact.path);
+                    return "maven/" + artifact.path;
                 });
                 spec.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
             });

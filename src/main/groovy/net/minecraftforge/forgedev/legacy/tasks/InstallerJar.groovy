@@ -22,7 +22,6 @@ abstract class InstallerJar extends Zip {
     @Input @Optional abstract Property<Boolean> getFat()
     @Input @Optional abstract Property<Boolean> getOffline()
 
-
     protected abstract @Inject ProjectLayout getLayout()
     protected abstract @Inject ProviderFactory getProviders()
 

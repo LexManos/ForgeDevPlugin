@@ -4,6 +4,7 @@
  */
 package net.minecraftforge.forgedev;
 
+import net.minecraftforge.forgedev.legacy.tasks.DownloadDependency;
 import net.minecraftforge.forgedev.legacy.values.CIRuntime;
 import net.minecraftforge.forgedev.tasks.compat.LegacyExtractZip;
 import net.minecraftforge.forgedev.tasks.compat.LegacyMergeFilesTask;
@@ -37,6 +38,7 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.JavaPlugin;
@@ -111,6 +113,9 @@ public abstract class ForgeDevExtension {
 
     public Installer installer() {
         return installer(Installer.DEFAULT_NAME);
+    }
+    public Installer installer(Action<Installer> action) {
+        return installer(Installer.DEFAULT_NAME, action);
     }
     public Installer installer(String name) {
         return installer(name, i -> {});

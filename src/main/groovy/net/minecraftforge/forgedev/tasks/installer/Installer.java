@@ -194,7 +194,7 @@ public abstract class Installer {
         var self = project.getProviders().provider(() -> holder.value);
 
         var base = DownloadDependency.register(project, name + "DownloadBase", Tools.INSTALLER.getModule().toString());
-        var jarConfig = tasks.register(name + "JarConfig", InstallerJarConfig.class, self);
+        var jarConfig = tasks.register(name + "JarConfig", InstallerJarConfig.class, self, base);
         var jar = tasks.register(name + "Jar", InstallerJar.class);
         var json = tasks.register(name + "Json", InstallerJson.class);
         var launcherJson = tasks.register(name + "LauncherJson", LauncherJson.class);
@@ -212,10 +212,6 @@ public abstract class Installer {
                 json,
                 launcherJson
             );
-
-            task.from(project.zipTree(base.map(DownloadDependency::getOutput)), cfg -> {
-               cfg.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
-            });
         });
 
         json.configure(task -> {
