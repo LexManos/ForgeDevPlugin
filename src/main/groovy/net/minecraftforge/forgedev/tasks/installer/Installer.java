@@ -215,7 +215,7 @@ public abstract class Installer {
         });
 
         json.configure(task -> {
-            task.getOutput().set(baseDir.file("installer_profile.json"));
+            task.getOutput().set(baseDir.file("install_profile.json"));
         });
 
         launcherJson.configure(task -> {

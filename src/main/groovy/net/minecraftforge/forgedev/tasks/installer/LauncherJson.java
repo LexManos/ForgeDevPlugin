@@ -8,7 +8,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraftforge.forgedev.legacy.tasks.Util;
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
+import net.minecraftforge.forgedev.legacy.values.MavenInfo;
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
+import net.minecraftforge.forgedev.tasks.SingleFileOutput;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.artifacts.Configuration;
@@ -24,6 +26,7 @@ import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.TaskProvider;
 import org.jetbrains.annotations.ApiStatus;
 
 import javax.inject.Inject;
@@ -85,6 +88,16 @@ public abstract class LauncherJson extends DefaultTask {
     public void library(Provider<MinimalResolvedArtifact> info, Action<LibraryInfo> action) {
         this.getInput().from(info.map(MinimalResolvedArtifact::file));
         this.getLibraries().add(info.map(LibraryInfo::from).map(LibraryInfo.apply(action)));
+    }
+
+    public void generated(TaskProvider<? extends SingleFileOutput> task, String classifier) {
+        generated(task, classifier, t -> {});
+    }
+    public void generated(TaskProvider<? extends SingleFileOutput> task, String classifier, Action<LibraryInfo> action) {
+        library(MinimalResolvedArtifact.from(MavenInfo.from(getProject(), classifier), task.flatMap(SingleFileOutput::getOutput)), info -> {
+            action.execute(info);
+            info.downloads().artifact().url = "";
+        });
     }
 
     @TaskAction
