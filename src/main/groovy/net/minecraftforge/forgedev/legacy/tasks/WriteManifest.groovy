@@ -28,13 +28,6 @@ abstract class WriteManifest extends DefaultTask {
         project.tasks.register('writeManifest', WriteManifest).tap { task ->
             project.tasks.named('processResources', ProcessResources) {
                 it.dependsOn(task)
-                it.from(task) { CopySpec copy ->
-                    // Take the output from this task and copy it into resources META-INF
-                    copy.into('META-INF')
-
-                    // Replace duplicate file if it exists
-                    copy.duplicatesStrategy = DuplicatesStrategy.INCLUDE
-                }
             }
 
             project.afterEvaluate {
@@ -56,7 +49,7 @@ abstract class WriteManifest extends DefaultTask {
     @Inject
     WriteManifest(ProjectLayout layout) {
         // The output name is ALWAYS "MANIFEST.MF", and output cannot be changed
-        this.output.value(layout.buildDirectory.file("${this.name}/MANIFEST.MF")).disallowChanges()
+        this.output.value(layout.projectDirectory.file("src/main/resources/META-INF/MANIFEST.MF")).disallowChanges()
     }
 
     @TaskAction

@@ -69,6 +69,7 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
             var eclipse = project.getExtensions().getByType(EclipseModel.class);
 
             eclipse.synchronizationTasks(
+                processResources,
                 tasks.named("eclipseClasspath", GenerateEclipseClasspath.class),
                 tasks.named("eclipseProject", GenerateEclipseProject.class)
             );
