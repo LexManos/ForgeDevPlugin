@@ -66,6 +66,8 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
 
     protected abstract @Nested Property<JavaLauncher> getJavaLauncher();
 
+    protected abstract @Input ListProperty<String> getProjectDependencies();
+
     protected abstract @InputFiles @Classpath ConfigurableFileCollection getClasspath();
 
     protected abstract @Input Property<String> getMainClass();
@@ -89,10 +91,7 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
     @Inject
     public SlimeLauncherEclipseConfiguration() {
         this.getProjectName().convention(this.getProject().getName());
-        this.getEclipseProjectName().convention(getProviders().provider(() -> {
-            var eclipse = getProject().getExtensions().findByType(EclipseModel.class);
-            return eclipse == null ? null : eclipse.getProject().getName();
-        }));
+        this.getEclipseProjectName().convention(getProject().provider(() -> Util.getProjectEclipseName(this.getProject())));
 
         var tool = this.getTool(Tools.SLIMELAUNCHER);
         this.getClasspath().from(tool.getClasspath());
@@ -141,6 +140,7 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
         queue.submit(Action.class, parameters -> {
             parameters.getOutputFile().set(this.getOutputFile());
             parameters.getEclipseProjectName().set(this.getEclipseProjectName().orElse(this.getProjectName()));
+            parameters.getProjectDependencies().set(this.getProjectDependencies());
             parameters.getClasspath().setFrom(this.getClasspath());
             parameters.getMainClass().set(this.getMainClass().get());
             parameters.getArgs().set(args);
@@ -148,6 +148,7 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
             parameters.getWorkingDir().set(workingDir);
             parameters.getEnvironment().set(environment);
             parameters.getJavaHome().set(this.getJavaLauncher().map(j -> j.getMetadata().getInstallationPath()));
+            parameters.getJavaVersion().set(this.getJavaLauncher().map(j -> j.getMetadata().getLanguageVersion().toString()));
         });
     }
 
@@ -156,6 +157,8 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
             RegularFileProperty getOutputFile();
 
             Property<String> getEclipseProjectName();
+
+            ListProperty<String> getProjectDependencies();
 
             ConfigurableFileCollection getClasspath();
 
@@ -168,6 +171,8 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
             DirectoryProperty getWorkingDir();
 
             DirectoryProperty getJavaHome();
+
+            Property<String> getJavaVersion();
 
             MapProperty<String, String> getEnvironment();
         }
@@ -202,7 +207,12 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
             stringAttribute(launch, rootElement, "org.eclipse.jdt.launching.WORKING_DIRECTORY", parameters.getWorkingDir().getAsFile().get().getAbsolutePath());
             //stringAttribute(launch, rootElement, "org.eclipse.jdt.launching.JRE_CONTAINER", parameters.getJavaHome().getAsFile().get().getAbsolutePath());
             mapAttribute(launch, rootElement, "org.eclipse.debug.core.environmentVariables", parameters.getEnvironment().get());
-            classpathAttribute(launch, rootElement, parameters.getClasspath());
+
+            var classpathList = classpathList(rootElement);
+            addClasspathProjects(classpathList, parameters.getProjectDependencies());
+            addClasspathLibraries(classpathList, parameters.getClasspath());
+            addClasspathJava(classpathList, parameters.getJavaVersion().get());
+
             booleanAttribute(launch, rootElement, "org.eclipse.jdt.launching.DEFAULT_CLASSPATH", false);
 
             launch.appendChild(rootElement);
@@ -245,19 +255,40 @@ abstract class SlimeLauncherEclipseConfiguration extends DefaultTask implements 
             parent.appendChild(attribute);
         }
 
-        private static final String CLASSPATH_ENTRY_PREFIX = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?> <runtimeClasspathEntry externalArchive=\"";
-        private static final String CLASSPATH_ENTRY_SUFFIX = "\" path=\"5\" type=\"2\"/>";
 
-        private static void classpathAttribute(Document document, Element parent, FileCollection files) {
-            var attribute = document.createElement("listAttribute");
+        private static final String CLASSPATH_ENTRY_PREFIX = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><runtimeClasspathEntry ";
+        private static final String CLASSPATH_ENTRY_SUFFIX = " path=\"5\" />";
+
+        private static Element addChild(Element parent, String name) {
+            var ret = parent.getOwnerDocument().createElement(name);
+            parent.appendChild(ret);
+            return ret;
+        }
+
+        private static Element classpathList(Element parent) {
+            var attribute = addChild(parent, "listAttribute");
             attribute.setAttribute("key", "org.eclipse.jdt.launching.CLASSPATH");
+            return attribute;
+        }
 
-            for (var v : files.getFiles()) {
-                var listEntry = document.createElement("listEntry");
-                listEntry.setAttribute("value", CLASSPATH_ENTRY_PREFIX + v + CLASSPATH_ENTRY_SUFFIX);
-                attribute.appendChild(listEntry);
+        private static void classpathEntry(Element parent, int type, String value) {
+            addChild(parent, "listEntry").setAttribute("value", CLASSPATH_ENTRY_PREFIX + value + " type=\"" + type + "\"" + CLASSPATH_ENTRY_SUFFIX);
+        }
+
+        private static void addClasspathLibraries(Element parent, FileCollection files) {
+            for (var v : files.getFiles())
+                classpathEntry(parent, 2, "externalArchive=\"" + v + "\"");
+        }
+
+        private static void addClasspathProjects(Element parent, ListProperty<String> projects) {
+            for (var v : projects.get()) {
+                classpathEntry(parent, 1, "projectName=\"" + v + "\"");
+                classpathEntry(parent, 4, "containerPath=\"org.eclipse.buildship.core.gradleclasspathcontainer\" javaProject=\"" + v + "\"");
             }
-            parent.appendChild(attribute);
+        }
+
+        private static void addClasspathJava(Element parent, String version) {
+            classpathEntry(parent, 4, "containerPath=\"org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-" + version + "\"");
         }
 
         private static void mapAttribute(Document document, Element parent, String key, Map<String, ?> map) {

@@ -10,6 +10,8 @@ import net.minecraftforge.forgedev.Tools;
 import net.minecraftforge.forgedev.Util;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ModuleIdentifier;
+import org.gradle.api.artifacts.ProjectDependency;
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.attributes.Usage;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
@@ -25,6 +27,7 @@ import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -47,17 +50,30 @@ public abstract class SlimeLauncherExec extends JavaExec implements ForgeDevTask
         var runTaskName = sourceSet.getTaskName("run", options.getName());
         var generateEclipseRunTaskName = sourceSet.getTaskName("genEclipseRun", options.getName());
 
-        var sourceSetOutputs = project.getObjects().fileCollection().from(sourceSet.getOutput().getResourcesDir(), sourceSet.getJava().getDestinationDirectory());
-        var eclipseOutputs = project.getObjects().fileCollection().from(eclipseOutputDir);
         var genEclipseRun = project.getTasks().register(generateEclipseRunTaskName, SlimeLauncherEclipseConfiguration.class, task -> {
             task.getRunName().set(options.getName());
             task.setDescription("Generates the '%s' Slime Launcher run configuration for Eclipse.".formatted(options.getName()));
             task.getOutputFile().set(task.getProjectLayout().getProjectDirectory().file(runTaskName + ".launch"));
 
-            task.getClasspath()
-                .from(task.getObjects().fileCollection().from(task.getProviders().provider(sourceSet::getRuntimeClasspath)))
-                .minus(sourceSetOutputs)
-                .plus(eclipseOutputs);
+            var configName = sourceSet.getRuntimeClasspathConfigurationName();
+            var config = project.getConfigurations().getByName(configName);
+
+            task.getProjectDependencies().addAll(config.getIncoming().getArtifacts().getResolvedArtifacts()
+                .map(artifacts -> {
+                    var ret = new ArrayList<String>();
+                    // We need to reference our self as well
+                    ret.add(Util.getProjectEclipseName(project));
+
+                    var root = project.getRootProject();
+                    for (var artifact : artifacts) {
+                        var id = artifact.getId().getComponentIdentifier();
+                        if (id instanceof ProjectComponentIdentifier projectIdentifier) {
+                            var dep = root.project(projectIdentifier.getProjectPath());
+                            ret.add(Util.getProjectEclipseName(dep));
+                        }
+                    }
+                    return ret;
+                }));
 
             task.getSourceSetName().set(sourceSet.getName());
 
