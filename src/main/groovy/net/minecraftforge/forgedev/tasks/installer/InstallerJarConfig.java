@@ -36,10 +36,10 @@ public abstract class InstallerJarConfig extends DefaultTask {
     private final Provider<Installer> installer;
     private final TaskProvider<DownloadDependency> base;
 
-    @InputFiles abstract ConfigurableFileCollection getInput();
-    @Input abstract Property<Boolean> getDev();
-    @Input abstract Property<Boolean> getOffline();
-    @Input abstract ListProperty<MinimalResolvedArtifact> getLibraries();
+    @InputFiles public abstract ConfigurableFileCollection getInput();
+    @Input public abstract Property<Boolean> getDev();
+    @Input public abstract Property<Boolean> getOffline();
+    @Input public abstract ListProperty<MinimalResolvedArtifact> getLibraries();
     private final Map<Provider<String>, Action<LibraryInfo>> actions = new IdentityHashMap<>();
 
     @Inject protected abstract ArchiveOperations getArchiveOperations();

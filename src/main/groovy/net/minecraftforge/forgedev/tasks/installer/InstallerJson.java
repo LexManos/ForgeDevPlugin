@@ -47,26 +47,26 @@ public abstract class InstallerJson extends DefaultTask {
     protected abstract @Inject ProviderFactory getProviders();
     protected abstract @Inject ObjectFactory getObjects();
 
-    @OutputFile abstract RegularFileProperty getOutput();
+    @OutputFile public abstract RegularFileProperty getOutput();
 
-    @InputFiles abstract ConfigurableFileCollection getInput();
-    @InputFile @Optional abstract RegularFileProperty getIcon();
-    @Input abstract Property<String> getLauncherJsonName();
-    @Input abstract Property<String> getLogo();
-    @Input abstract Property<String> getMirrors();
-    @Input abstract Property<String> getWelcome();
-    @Input abstract Property<String> getProfileName();
-    @Input abstract Property<String> getProfileVersion();
-    @Input abstract Property<String> getExecutablePath();
-    @Input abstract Property<String> getMinecraft();
-    @Input abstract Property<String> getMinecraftServerPath();
+    @InputFiles public abstract ConfigurableFileCollection getInput();
+    @InputFile @Optional public abstract RegularFileProperty getIcon();
+    @Input public abstract Property<String> getLauncherJsonName();
+    @Input public abstract Property<String> getLogo();
+    @Input public abstract Property<String> getMirrors();
+    @Input public abstract Property<String> getWelcome();
+    @Input public abstract Property<String> getProfileName();
+    @Input public abstract Property<String> getProfileVersion();
+    @Input public abstract Property<String> getExecutablePath();
+    @Input public abstract Property<String> getMinecraft();
+    @Input public abstract Property<String> getMinecraftServerPath();
 
-    @Input abstract Property<Boolean> getHideExtract();
-    @Input abstract Property<Boolean> getHideClient();
-    @Input abstract Property<Boolean> getHideServer();
+    @Input public abstract Property<Boolean> getHideExtract();
+    @Input public abstract Property<Boolean> getHideClient();
+    @Input public abstract Property<Boolean> getHideServer();
 
-    @Input @Optional abstract MapProperty<String, Data> getData();
-    @Input @Optional abstract ListProperty<Step> getSteps();
+    @Input @Optional public abstract MapProperty<String, Data> getData();
+    @Input @Optional public abstract ListProperty<Step> getSteps();
 
     private final Set<Provider<LibraryInfo>> extraLibraries = new LinkedHashSet<>();
 

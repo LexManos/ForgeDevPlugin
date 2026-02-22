@@ -48,21 +48,21 @@ public abstract class LauncherJson extends DefaultTask {
     protected abstract @Inject ProviderFactory getProviders();
     protected abstract @Inject ObjectFactory getObjects();
 
-    @OutputFile abstract RegularFileProperty getOutput();
+    @OutputFile public abstract RegularFileProperty getOutput();
 
-    @InputFiles abstract ConfigurableFileCollection getInput();
-    @Input abstract Property<String> getTimestamp();
-    @Input abstract Property<String> getReleaseTime();
-    @Input abstract Property<String> getId();
-    @Input @Optional abstract Property<String> getInheritsFrom();
-    @Input abstract Property<String> getType();
-    @Input @Optional abstract Property<String> getMainClass();
-    @Input @Optional abstract ListProperty<Object> getGameArgs();
-    @Input @Optional abstract ListProperty<Object> getJvmArgs();
-    @Input abstract ListProperty<LibraryInfo> getLibraries();
-    @Input abstract Property<Boolean> getSortLibraries();
-    @Input abstract Property<Boolean> getLibrariesLast();
-    @Input abstract Property<Boolean> getDuplicateLibraries();
+    @InputFiles public abstract ConfigurableFileCollection getInput();
+    @Input public abstract Property<String> getTimestamp();
+    @Input public abstract Property<String> getReleaseTime();
+    @Input public abstract Property<String> getId();
+    @Input @Optional public abstract Property<String> getInheritsFrom();
+    @Input public abstract Property<String> getType();
+    @Input @Optional public abstract Property<String> getMainClass();
+    @Input @Optional public abstract ListProperty<Object> getGameArgs();
+    @Input @Optional public abstract ListProperty<Object> getJvmArgs();
+    @Input public abstract ListProperty<LibraryInfo> getLibraries();
+    @Input public abstract Property<Boolean> getSortLibraries();
+    @Input public abstract Property<Boolean> getLibrariesLast();
+    @Input public abstract Property<Boolean> getDuplicateLibraries();
 
     @Inject
     public LauncherJson() {
