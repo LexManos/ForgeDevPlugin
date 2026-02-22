@@ -23,6 +23,12 @@ import javax.inject.Inject
 @CompileStatic
 abstract class DownloadDependency extends DefaultTask {
     static TaskProvider<DownloadDependency> register(Project project, String name, Object dependency) {
+        return project.tasks.register(name, DownloadDependency) {
+            it.artifact = dependency;
+        }
+    }
+
+    public void setArtifact(Object dependency) {
         final def unpacked
         if (dependency instanceof ProviderConvertible<?>)
             unpacked = dependency.asProvider().get()
@@ -42,15 +48,13 @@ abstract class DownloadDependency extends DefaultTask {
             }
         )
 
-        project.tasks.register(name, DownloadDependency) {
-            it.output.fileProvider(it.providers.provider {
-                try {
-                    configuration.singleFile
-                } catch (IllegalStateException e) {
-                    throw new IllegalArgumentException('Downloaded dependency variant is not a single file', e)
-                }
-            })
-        }
+        output.fileProvider(providers.provider {
+            try {
+                configuration.singleFile
+            } catch (IllegalStateException e) {
+                throw new IllegalArgumentException('Downloaded dependency variant is not a single file', e)
+            }
+        })
     }
 
     abstract @OutputFile RegularFileProperty getOutput()

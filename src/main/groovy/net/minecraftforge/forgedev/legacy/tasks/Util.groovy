@@ -12,10 +12,13 @@ import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.SimpleType
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact
+import net.minecraftforge.gradleutils.shared.SharedUtil
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ResolvedArtifact
+import org.gradle.api.provider.HasConfigurableValue
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
@@ -181,11 +184,11 @@ final class Util {
     }
 
     @CompileDynamic
-    private static Provider<Map<String, MinimalResolvedArtifact>> artifactTree(Project project, String artifact, boolean transitive = true) {
+    static Provider<Map<String, MinimalResolvedArtifact>> artifactTree(Project project, String artifact, boolean transitive = true) {
         return MinimalResolvedArtifact.from(project, project.configurations.detachedConfiguration(
             project.dependencies.create(artifact)
         ).tap { it.transitive = transitive }).map { list ->
-            var map = new HashMap<String, MinimalResolvedArtifact>(list.size())
+            var map = new LinkedHashMap<String, MinimalResolvedArtifact>(list.size())
             for (var minimal in list) {
                 map.put(minimal.info().key(), minimal)
             }
@@ -238,5 +241,33 @@ final class Util {
                 }
             }
         }
+    }
+
+    @CompileDynamic
+    static String asArtifactString(Object artifact) {
+        def value = SharedUtil.unpack(artifact)
+        if (!(value instanceof Dependency))
+            throw new IllegalArgumentException("Cannot get non-dependency as artifact string! Found: $value.class")
+
+        def classifier = value.hasProperty('classifier') ? ":$value.classifier" : ''
+        def extension = value.hasProperty('artifactType') ? "@$value.artifactType" : value.hasProperty('extension') ? "@$value.extension" : ''
+        classifier = classifier != ':null' ? classifier : ''
+        extension = extension != '@null' ? extension : ''
+
+        "$value.group:$value.name:$value.version$classifier$extension".toString()
+    }
+
+    static <R extends HasConfigurableValue> R finalize(Project project, R ret) {
+        ret.disallowChanges();
+        ret.finalizeValueOnRead();
+        return ret;
+    }
+
+    static String capitalize(String s) {
+        return s.capitalize();
+    }
+
+    static String kebab(String s) {
+        s.replaceAll('([A-Z])', '-$1').toLowerCase()
     }
 }

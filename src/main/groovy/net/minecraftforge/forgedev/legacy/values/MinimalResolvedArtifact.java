@@ -4,11 +4,14 @@
  */
 package net.minecraftforge.forgedev.legacy.values;
 
+import net.minecraftforge.forgedev.legacy.tasks.Util;
 import org.gradle.api.Project;
+import org.gradle.api.Transformer;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ProjectDependency;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
@@ -19,6 +22,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 public record MinimalResolvedArtifact(MavenInfo info, File file) implements Serializable {
     private static Provider<MinimalResolvedArtifact> from(Project project, ProjectDependency projectDependency, FileCollection files) {
@@ -26,28 +30,17 @@ public record MinimalResolvedArtifact(MavenInfo info, File file) implements Seri
         var ret = project.getObjects().property(MinimalResolvedArtifact.class).value(project.provider(files::getSingleFile).map(file ->
             new MinimalResolvedArtifact(info, file)
         ));
-
-        ret.disallowChanges();
-        ret.finalizeValueOnRead();
-        if (project.getState().getExecuted()) {
-            ret.finalizeValue();
-        }
-
-        return ret;
+        return Util.finalize(project, ret);
     }
 
     public static Provider<MinimalResolvedArtifact> from(Project project, TaskProvider<? extends AbstractArchiveTask> task) {
-        var ret = project.getObjects().property(MinimalResolvedArtifact.class).value(project.getProviders().zip(MavenInfo.from(project, task), task.flatMap(AbstractArchiveTask::getArchiveFile), (info, regularFile) ->
-            new MinimalResolvedArtifact(info, regularFile.getAsFile())
-        ));
-
-        ret.disallowChanges();
-        ret.finalizeValueOnRead();
-        if (project.getState().getExecuted()) {
-            ret.finalizeValue();
-        }
-
-        return ret;
+        var ret = project.getObjects().property(MinimalResolvedArtifact.class).value(
+            MavenInfo.from(project, task).zip(
+                task.flatMap(AbstractArchiveTask::getArchiveFile).map(RegularFile::getAsFile),
+                MinimalResolvedArtifact::new
+            )
+        );
+        return Util.finalize(project, ret);
     }
 
     public static MinimalResolvedArtifact from(Project project, ResolvedArtifactResult artifact) {
@@ -57,35 +50,38 @@ public record MinimalResolvedArtifact(MavenInfo info, File file) implements Seri
 
     public static Provider<List<MinimalResolvedArtifact>> from(Project project, Configuration configuration) {
         var ret = project.getObjects().listProperty(MinimalResolvedArtifact.class);
+        ret.addAll(configuration.getIncoming().getArtifacts().getResolvedArtifacts().map(transform(project)));
+        return Util.finalize(project, ret);
+    }
 
-        var configurations = project.getConfigurations();
-
-        // Find any artifacts from the 'installer' config
-        // This config specifies the runtime files we intend for the interaller to have.
-        // And are typically what we would be developing and testing alongside Forge.
-        // So we may have local modified versions
-        for (var dependency : configuration.getDependencies()) {
-            if (dependency instanceof ProjectDependency projectDependency) {
-                from(project, projectDependency, ret);
-            } else {
-                var c = configurations.detachedConfiguration(dependency);
-                ret.addAll(c.getIncoming().getArtifacts().getResolvedArtifacts().map(results -> {
-                    var artifacts = new ArrayList<MinimalResolvedArtifact>(results.size());
-                    for (var artifact : results) {
-                        artifacts.add(MinimalResolvedArtifact.from(null, artifact));
-                    }
-                    return artifacts;
-                }));
+    private static Transformer<List<MinimalResolvedArtifact>, Set<ResolvedArtifactResult>> transform(Project project) {
+        return results -> {
+            var artifacts = new ArrayList<MinimalResolvedArtifact>(results.size());
+            for (var artifact : results) {
+                artifacts.add(MinimalResolvedArtifact.from(project, artifact));
             }
-        }
+            return artifacts;
+        };
+    }
 
-        ret.disallowChanges();
-        ret.finalizeValueOnRead();
-        if (project.getState().getExecuted()) {
-            ret.finalizeValue();
-        }
+    public static Provider<MinimalResolvedArtifact> single(Project project, String artifact) {
+        return from(project, artifact, false).map(l -> l.get(0));
+    }
+    public static Provider<MinimalResolvedArtifact> from(MavenInfo info, Provider<RegularFile> file) {
+        return file.map(f -> new MinimalResolvedArtifact(info, f.getAsFile()));
+    }
+    public static Provider<List<MinimalResolvedArtifact>> from(Project project, String artifact) {
+        return from(project, artifact, true);
+    }
+    public static Provider<List<MinimalResolvedArtifact>> from(Project project, String artifact, boolean transitive) {
+        var ret = project.getObjects().listProperty(MinimalResolvedArtifact.class);
 
-        return ret;
+        var c = project.getConfigurations().detachedConfiguration(
+            project.getDependencies().create(artifact)
+        );
+        c.setTransitive(transitive);
+        ret.set(c.getIncoming().getArtifacts().getResolvedArtifacts().map(transform(project)));
+        return Util.finalize(project, ret);
     }
 
     private static void from(Project project, ProjectDependency projectDependency, ListProperty<MinimalResolvedArtifact> ret) {

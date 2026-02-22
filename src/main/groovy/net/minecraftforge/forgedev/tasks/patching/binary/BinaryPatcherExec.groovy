@@ -8,6 +8,7 @@ import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import net.minecraftforge.forgedev.Tools
 import net.minecraftforge.forgedev.Util
+import net.minecraftforge.forgedev.tasks.SingleFileOutput
 import net.minecraftforge.forgedev.tasks.ToolExec
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -23,9 +24,10 @@ import org.gradle.api.tasks.OutputFile
 import javax.inject.Inject
 
 @CompileStatic
-@PackageScope abstract class BinaryPatcherExec extends ToolExec {
+@PackageScope abstract class BinaryPatcherExec extends ToolExec implements SingleFileOutput {
     // Shared
     abstract @InputFiles ConfigurableFileCollection getClean()
+    @Override
     abstract @OutputFile RegularFileProperty getOutput()
     abstract @Input @Optional ListProperty<String> getPrefix()
     abstract @Input Property<Boolean> getPack200()

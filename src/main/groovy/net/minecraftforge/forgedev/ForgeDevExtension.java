@@ -4,10 +4,13 @@
  */
 package net.minecraftforge.forgedev;
 
+import net.minecraftforge.forgedev.legacy.tasks.DownloadDependency;
+import net.minecraftforge.forgedev.legacy.values.CIRuntime;
 import net.minecraftforge.forgedev.tasks.compat.LegacyExtractZip;
 import net.minecraftforge.forgedev.tasks.compat.LegacyMergeFilesTask;
 import net.minecraftforge.forgedev.tasks.filtering.LegacyFilterNewJar;
 import net.minecraftforge.forgedev.tasks.generation.GeneratePatcherConfigV2;
+import net.minecraftforge.forgedev.tasks.installer.Installer;
 import net.minecraftforge.forgedev.tasks.installertools.DownloadMappings;
 import net.minecraftforge.forgedev.tasks.launcher.SlimeLauncherExec;
 import net.minecraftforge.forgedev.tasks.mappings.LegacyApplyMappings;
@@ -35,6 +38,7 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.JavaPlugin;
@@ -47,6 +51,7 @@ import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.compile.JavaCompile;
+import org.gradle.internal.Actions;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
 import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -77,9 +82,14 @@ public abstract class ForgeDevExtension {
 
     protected abstract @Inject ProjectLayout getProjectLayout();
 
+    private final Project project;
+    private final Provider<Boolean> isCi;
+
     @Inject
     public ForgeDevExtension(ForgeDevPlugin plugin, Project project) {
         this.mavenizerRepo.set(plugin.globalCaches().dir("repo").map(this.problems.ensureFileLocation()));
+        this.project = project;
+        this.isCi = getProviders().of(CIRuntime.class, it -> {});
         this.setup(plugin, project);
     }
 
@@ -99,6 +109,25 @@ public abstract class ForgeDevExtension {
     private Configuration minecraftDepsConfiguration;
     public Configuration getMinecraftConfiguration() {
         return this.minecraftDepsConfiguration;
+    }
+
+    public Installer installer() {
+        return installer(Installer.DEFAULT_NAME);
+    }
+    public Installer installer(Action<Installer> action) {
+        return installer(Installer.DEFAULT_NAME, action);
+    }
+    public Installer installer(String name) {
+        return installer(name, i -> {});
+    }
+    public Installer installer(String name, Action<Installer> action) {
+        var ret = Installer.register(this.project, this, name);
+        action.execute(ret);
+        return ret;
+    }
+
+    public boolean isCi() {
+        return this.isCi.get();
     }
 
     private void setup(ForgeDevPlugin plugin, Project project) {

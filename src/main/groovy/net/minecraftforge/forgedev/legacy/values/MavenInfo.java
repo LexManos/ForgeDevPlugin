@@ -27,6 +27,32 @@ public record MavenInfo(String key, String name, String path, ArtifactInfo art) 
         return this.key.compareTo(that.key);
     }
 
+    public static MavenInfo from(String gav) {
+        var parts =  gav.split(":");
+        var group =  parts[0];
+        var name = parts[1];
+        var version = parts[2];
+
+        String classifier = null;
+        String extension = null;
+
+        if (parts.length > 3) {
+            classifier = parts[3];
+            var idx = classifier.indexOf('@');
+            if (idx != -1) {
+                classifier = classifier.substring(0, idx);
+                extension = classifier.substring(idx + 1);
+            }
+        } else {
+            var idx = version.indexOf('@');
+            if (idx != -1) {
+                version = version.substring(0, idx);
+                extension = version.substring(idx + 1);
+            }
+        }
+        return from(group, name, version, classifier, extension);
+    }
+
     public static MavenInfo from(String artGroup, String artName, String artVersion, @Nullable String artClassifier, @Nullable String artExtension) {
         if (artExtension == null)
             artExtension = "jar";
