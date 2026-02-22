@@ -263,13 +263,13 @@ public abstract class SlimeLauncherOptionsImpl implements SlimeLauncherOptionsIn
     public SlimeLauncherOptionsInternal inherit(Map<String, RunConfig> configs, String sourceSetName, String name) {
         var target = getObjects().newInstance(SlimeLauncherOptionsImpl.class, name);
         target.getMainClass().convention(this.getMainClass());
-        target.getArgs().convention(this.getArgs());
-        target.getJvmArgs().convention(this.getJvmArgs());
-        target.getClasspath().convention(this.getClasspath());
+        target.getArgs().convention(this.getArgs()).addAll(this.getArgs());
+        target.getJvmArgs().convention(this.getJvmArgs()).addAll(this.getJvmArgs());
+        target.getClasspath().convention(this.getClasspath()).setFrom(this.getClasspath());
         target.getMinHeapSize().convention(this.getMinHeapSize());
         target.getMaxHeapSize().convention(this.getMaxHeapSize());
-        target.getSystemProperties().convention(this.getSystemProperties());
-        target.getEnvironment().convention(this.getEnvironment());
+        target.getSystemProperties().convention(this.getSystemProperties()).putAll(this.getSystemProperties());
+        target.getEnvironment().convention(this.getEnvironment()).putAll(this.getEnvironment());
         target.getWorkingDir().convention(this.getWorkingDir().orElse(getProjectLayout().getProjectDirectory().dir("runs/" + sourceSetName + '/' + this.name)));
         target.getClient().convention(this.getClient());
         return this.inherit(target, sourceSetName, configs, name);
