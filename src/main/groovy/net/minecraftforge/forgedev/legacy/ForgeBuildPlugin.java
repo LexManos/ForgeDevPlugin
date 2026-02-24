@@ -4,7 +4,6 @@
  */
 package net.minecraftforge.forgedev.legacy;
 
-import net.minecraftforge.forgedev.legacy.tasks.BundleList;
 import net.minecraftforge.forgedev.tasks.filtering.LegacyFilterNewJar;
 import net.minecraftforge.forgedev.tasks.generation.GeneratePatcherConfigV2;
 import net.minecraftforge.forgedev.tasks.installertools.DownloadMappings;
@@ -51,6 +50,7 @@ abstract class ForgeBuildPlugin extends EnhancedPlugin<Project> {
         super(NAME, DISPLAY_NAME, "forgeTools");
     }
 
+    @SuppressWarnings("removal")
     @Override
     public void setup(Project project) {
         project.getPluginManager().apply("de.undercouch.download");
@@ -75,7 +75,10 @@ abstract class ForgeBuildPlugin extends EnhancedPlugin<Project> {
                 task.getInput().fileProvider(tasks.named("genJoinedBinPatches", CreateBinPatches.class).map(t -> t.getClean().getSingleFile()));
                 task.getLibraries().from(setupMCP.flatMap(MavenizerMCPSetup::getLibrariesList).map(libraries -> {
                     try {
-                        return Files.readAllLines(libraries.getAsFile().toPath()).stream().map(File::new).toList();
+                        return Files.readAllLines(libraries.getAsFile().toPath()).stream()
+                                .map(line -> line.substring(3)) // remove -e=
+                                .map(File::new)
+                                .toList();
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -98,12 +101,6 @@ abstract class ForgeBuildPlugin extends EnhancedPlugin<Project> {
                 task.getMappings().set(downloadServerMappings.flatMap(DownloadMappings::getOutput));
                 task.getInput().set(setupMCP.flatMap(MavenizerMCPSetup::getServerExtracted));
                 task.getOutput().set(task.getDefaultOutputFile());
-            });
-
-            var createServerShimClasspath = tasks.register("createServerShimClasspath", BundleList.class, task -> {
-                task.dependsOn(setupMCP);
-
-                task.getServerBundle().set(setupMCP.flatMap(MavenizerMCPSetup::getServerRaw));
             });
 
             var genClientBinPatches = tasks.named("genClientBinPatches", CreateBinPatches.class, task -> {

@@ -10,11 +10,13 @@ import net.minecraftforge.forgedev.tasks.ToolExec
 import net.minecraftforge.gradleutils.shared.Tool
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.logging.LogLevel
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
+import org.gradle.process.ExecResult
 
 import javax.inject.Inject
 
@@ -29,8 +31,14 @@ abstract class ExtractInheritance extends ToolExec {
     @Inject
     ExtractInheritance() {
         super(Tools.INSTALLERTOOLS)
-
         this.output.convention(this.getDefaultOutputFile('json'))
+        this.preferToolchainJvm.convention(true)
+        this.standardOutputLogLevel.convention(LogLevel.INFO);
+    }
+
+    @Override
+    protected ExecResult exec() throws IOException {
+        super.exec().assertNormalExitValue().rethrowFailure()
     }
 
     @Override

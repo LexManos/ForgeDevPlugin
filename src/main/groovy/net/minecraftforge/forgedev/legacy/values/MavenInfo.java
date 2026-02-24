@@ -46,8 +46,8 @@ public record MavenInfo(String key, String name, String path, ArtifactInfo art) 
         } else {
             var idx = version.indexOf('@');
             if (idx != -1) {
-                version = version.substring(0, idx);
                 extension = version.substring(idx + 1);
+                version = version.substring(0, idx);
             }
         }
         return from(group, name, version, classifier, extension);

@@ -13,6 +13,7 @@ import groovy.transform.stc.SimpleType
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact
 import net.minecraftforge.gradleutils.shared.SharedUtil
+import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.Configuration
@@ -178,6 +179,13 @@ final class Util {
         }
         return md.digest().collect(this.&toHex).join('')
     }
+    static String sha256(File file) {
+        MessageDigest md = MessageDigest.getInstance('SHA-256')
+        file.eachByte(4096) { byte[] bytes, int size ->
+            md.update(bytes, 0, size)
+        }
+        return md.digest().collect(this.&toHex).join('')
+    }
 
     @PackageScope static String toHex(byte bite) {
         return String.format('%02x', bite)
@@ -269,5 +277,11 @@ final class Util {
 
     static String kebab(String s) {
         s.replaceAll('([A-Z])', '-$1').toLowerCase()
+    }
+
+    private static final Action<?> DO_NOTHING = input -> {};
+    @SuppressWarnings("unchecked")
+    static <T> Action<T> noop() {
+        return (Action<T>)DO_NOTHING;
     }
 }

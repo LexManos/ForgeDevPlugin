@@ -4,8 +4,9 @@
  */
 package net.minecraftforge.forgedev;
 
-import net.minecraftforge.forgedev.legacy.tasks.DownloadDependency;
+import net.minecraftforge.forgedev.legacy.tasks.Util;
 import net.minecraftforge.forgedev.legacy.values.CIRuntime;
+import net.minecraftforge.forgedev.tasks.checks.CheckTask;
 import net.minecraftforge.forgedev.tasks.compat.LegacyExtractZip;
 import net.minecraftforge.forgedev.tasks.compat.LegacyMergeFilesTask;
 import net.minecraftforge.forgedev.tasks.filtering.LegacyFilterNewJar;
@@ -26,9 +27,11 @@ import net.minecraftforge.forgedev.tasks.patching.diff.ApplyPatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.BakePatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.GeneratePatches;
 import net.minecraftforge.forgedev.tasks.sas.CreateFakeSASPatches;
+import net.minecraftforge.forgedev.tasks.shim.Shim;
 import net.minecraftforge.forgedev.tasks.srg2source.ApplyRangeMap;
 import net.minecraftforge.forgedev.tasks.srg2source.ExtractRangeMap;
 import net.minecraftforge.gradleutils.shared.Closures;
+import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -38,7 +41,6 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.DuplicatesStrategy;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.JavaPlugin;
@@ -51,7 +53,6 @@ import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.compile.JavaCompile;
-import org.gradle.internal.Actions;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
 import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -106,11 +107,17 @@ public abstract class ForgeDevExtension {
         return this.mavenizerRepo;
     }
 
+    public boolean isCi() {
+        return this.isCi.get();
+    }
+
     private Configuration minecraftDepsConfiguration;
     public Configuration getMinecraftConfiguration() {
         return this.minecraftDepsConfiguration;
     }
+    // Tasks creation helpers
 
+    // =====================================================================
     public Installer installer() {
         return installer(Installer.DEFAULT_NAME);
     }
@@ -118,23 +125,66 @@ public abstract class ForgeDevExtension {
         return installer(Installer.DEFAULT_NAME, action);
     }
     public Installer installer(String name) {
-        return installer(name, i -> {});
+        return installer(name, Util.noop());
     }
     public Installer installer(String name, Action<Installer> action) {
         var ret = Installer.register(this.project, this, name);
         action.execute(ret);
         return ret;
     }
+    // =====================================================================
 
-    public boolean isCi() {
-        return this.isCi.get();
+    // =====================================================================
+    // 'Check' and 'Fix' tasks, Registers the same task twice with a 'fix'
+    // boolean input. Registers the 'check{Name}' version to the 'check' group
+    // and the 'checkAndFix{Name}' task to the 'checkAndFix' group.
+    // =====================================================================
+    public <T extends CheckTask> void check(String taskName, Class<T> clazz) {
+        check(taskName, clazz, Util.noop());
     }
+    public <T extends CheckTask> void check(String taskName, Class<T> clazz, Action<? super T> action) {
+        var tasks = this.project.getTasks();
+        taskName = StringGroovyMethods.capitalize(taskName);
 
+        var check = tasks.register("check" + taskName, clazz, task -> {
+            action.execute(task);
+            task.getFix().set(false);
+        });
+        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME, task -> task.dependsOn(check));
+
+        var checkAndFix = tasks.register("checkAndFix" + taskName, clazz, task -> {
+            action.execute(task);
+            task.getFix().set(true);
+        });
+        tasks.named("checkAndFix", task -> task.dependsOn(checkAndFix));
+    }
+    // ===============================================================================
+
+    public Shim shim() {
+        return shim(Util.noop());
+    }
+    public Shim shim(Action<Shim> action) {
+        return shim(Shim.DEFAULT_NAME, action);
+    }
+    public Shim shim(String name) {
+        return shim(name, Util.noop());
+    }
+    public Shim shim(String name, Action<Shim> action) {
+        var ret = Shim.register(this.project, this, name);
+        action.execute(ret);
+        return ret;
+    }
+    // ===============================================================================
+
+
+
+
+    @SuppressWarnings("removal")
     private void setup(ForgeDevPlugin plugin, Project project) {
         var tasks = project.getTasks();
 
         var legacyPatcher = project.getExtensions().create(LegacyPatcherExtension.EXTENSION_NAME, LegacyPatcherExtension.class);
-        var legacyMcp = project.getExtensions().create(LegacyMCPExtension.EXTENSION_NAME, LegacyMCPExtension.class);
+        var legacyMcp = project.getExtensions().create(LegacyMCPExtension.EXTENSION_NAME, LegacyMCPExtension.class, plugin);
         var java = project.getExtensions().getByType(JavaPluginExtension.class);
 
         var jar = tasks.named(JavaPlugin.JAR_TASK_NAME, Jar.class);

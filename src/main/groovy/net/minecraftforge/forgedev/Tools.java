@@ -15,6 +15,7 @@ public final class Tools {
     public static final Tool BINPATCH = Tool.ofForge("binpatcher", "net.minecraftforge:binarypatcher:1.2.2:fatjar", 8);
     public static final Tool INSTALLERTOOLS = Tool.ofForge("installertools", "net.minecraftforge:installertools:1.4.4:fatjar", 8);
     public static final Tool INSTALLER = Tool.ofForge("installer", "net.minecraftforge:installer:2.2.9:fatjar", 8);
+    public static final Tool SHIM = Tool.ofForge("shim", "net.minecraftforge:bootstrap-shim:2.1.8", 8);
     public static final Tool JARCOMPATIBILITYCHECKER = Tool.ofForge("jarcompatibilitychecker", "net.minecraftforge:JarCompatibilityChecker:0.1.28:all", 8);
     public static final Tool RENAMER = Tool.ofForge("renamer", "net.minecraftforge:ForgeAutoRenamingTool:1.1.1:all", 8);
     public static final Tool SRG2SRC = Tool.ofForge("srg2source", "net.minecraftforge:Srg2Source:8.1.1:fatjar", 17);
