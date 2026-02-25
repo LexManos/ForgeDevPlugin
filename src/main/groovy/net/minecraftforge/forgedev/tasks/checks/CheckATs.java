@@ -38,10 +38,7 @@ public abstract class CheckATs extends CheckTask {
             if (fix) {
                 var mappings = IMappingFile.load(getMappings().getAsFile().get());
                 var lines = joinBack(parsed, inheritance, mappings);
-                var buf = new StringBuilder();
-                for (var line : lines)
-                    buf.append(line).append("\n");
-                Files.writeString(at.toPath(), buf.toString(), StandardCharsets.UTF_8);
+                Files.writeString(at.toPath(), String.join("\n", lines), StandardCharsets.UTF_8);
             }
         }
     }
@@ -203,7 +200,7 @@ public abstract class CheckATs extends CheckTask {
         return 1;
     }
 
-    private static List<String> joinBack(ATFile at, Map<String, InheritanceData> inheritance, IMappingFile mappings) {
+    private List<String> joinBack(ATFile at, Map<String, InheritanceData> inheritance, IMappingFile mappings) {
         var data = new ArrayList<String>();
 
         for (var entry : at.getEntries().entrySet()) {
@@ -215,8 +212,10 @@ public abstract class CheckATs extends CheckTask {
                 add(data, value.modifier + ' ' + value.key, remapComment(mappings, inheritance, value));
             } else {
                 add(data, "#group " + value.modifier + ' ' + key, group.comment);
-                for (var child : group.children)
-                    data.add(value.modifier + ' ' + child);
+                for (var child : group.children) {
+                    var childEntry = this.getObjects().newInstance(ATFile.Entry.class, value.modifier + ' ' + child);
+                    add(data, value.modifier + ' ' + child, remapComment(mappings, inheritance, childEntry));
+                }
                 data.add("#endgroup");
             }
         }
@@ -232,7 +231,7 @@ public abstract class CheckATs extends CheckTask {
     }
 
     private static String remapComment(IMappingFile mappings, Map<String, InheritanceData> inheritance, ATFile.Entry entry) {
-        if (entry.desc == null)
+        if (entry.desc == null || entry.desc.isEmpty())
             return null;
         var comment = entry.comment != null ? entry.comment.substring(1).trim() : null;
         var jsonCls = inheritance.get(entry.cls.replace('.', '/'));
@@ -246,7 +245,7 @@ public abstract class CheckATs extends CheckTask {
                 ? mapCls.remapField(entry.desc)
                 : mapCls.remapMethod(entry.desc.substring(0, idx), entry.desc.substring(idx));
 
-        if (mappedName == null)
+        if (mappedName == null || mappedName.isEmpty())
             return entry.comment;
 
         if ("<init>".equals(mappedName))

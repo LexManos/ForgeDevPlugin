@@ -6,7 +6,9 @@ package net.minecraftforge.forgedev;
 
 import net.minecraftforge.forgedev.legacy.tasks.Util;
 import net.minecraftforge.forgedev.legacy.values.CIRuntime;
-import net.minecraftforge.forgedev.tasks.checks.CheckTask;
+import net.minecraftforge.forgedev.tasks.MethodCallFinder;
+import net.minecraftforge.forgedev.tasks.ValidateDeprecations;
+import net.minecraftforge.forgedev.tasks.checks.Checks;
 import net.minecraftforge.forgedev.tasks.compat.LegacyExtractZip;
 import net.minecraftforge.forgedev.tasks.compat.LegacyMergeFilesTask;
 import net.minecraftforge.forgedev.tasks.filtering.LegacyFilterNewJar;
@@ -31,7 +33,6 @@ import net.minecraftforge.forgedev.tasks.shim.Shim;
 import net.minecraftforge.forgedev.tasks.srg2source.ApplyRangeMap;
 import net.minecraftforge.forgedev.tasks.srg2source.ExtractRangeMap;
 import net.minecraftforge.gradleutils.shared.Closures;
-import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -78,9 +79,7 @@ public abstract class ForgeDevExtension {
     private final DirectoryProperty mavenizerRepo = this.getObjects().directoryProperty();
 
     protected abstract @Inject ObjectFactory getObjects();
-
     protected abstract @Inject ProviderFactory getProviders();
-
     protected abstract @Inject ProjectLayout getProjectLayout();
 
     private final Project project;
@@ -139,24 +138,16 @@ public abstract class ForgeDevExtension {
     // boolean input. Registers the 'check{Name}' version to the 'check' group
     // and the 'checkAndFix{Name}' task to the 'checkAndFix' group.
     // =====================================================================
-    public <T extends CheckTask> void check(String taskName, Class<T> clazz) {
-        check(taskName, clazz, Util.noop());
+    private Checks checks;
+    public Checks getChecks() {
+        if (checks == null)
+            checks = this.getObjects().newInstance(Checks.class, this.project);
+        return checks;
     }
-    public <T extends CheckTask> void check(String taskName, Class<T> clazz, Action<? super T> action) {
-        var tasks = this.project.getTasks();
-        taskName = StringGroovyMethods.capitalize(taskName);
-
-        var check = tasks.register("check" + taskName, clazz, task -> {
-            action.execute(task);
-            task.getFix().set(false);
-        });
-        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME, task -> task.dependsOn(check));
-
-        var checkAndFix = tasks.register("checkAndFix" + taskName, clazz, task -> {
-            action.execute(task);
-            task.getFix().set(true);
-        });
-        tasks.named("checkAndFix", task -> task.dependsOn(checkAndFix));
+    public Checks checks(Action<Checks> action) {
+        var ret = getChecks();
+        action.execute(ret);
+        return ret;
     }
     // ===============================================================================
 
@@ -172,6 +163,29 @@ public abstract class ForgeDevExtension {
     public Shim shim(String name, Action<Shim> action) {
         var ret = Shim.register(this.project, this, name);
         action.execute(ret);
+        return ret;
+    }
+    // ===============================================================================
+    public TaskProvider<MethodCallFinder> methodCallFinder(String name) {
+        return methodCallFinder(name, Util.noop());
+    }
+    public TaskProvider<MethodCallFinder> methodCallFinder(String name, Action<MethodCallFinder> action) {
+        return this.project.getTasks().register(name, MethodCallFinder.class, action);
+    }
+    // ===============================================================================
+    public TaskProvider<ValidateDeprecations> validateDeprecations() {
+        return validateDeprecations(this.project.getTasks().named("jar", Jar.class));
+    }
+    public TaskProvider<ValidateDeprecations> validateDeprecations(TaskProvider<? extends AbstractArchiveTask> jar) {
+        var tasks = this.project.getTasks();
+        var ret = tasks.register("validate" + Util.capitalize(jar.getName()) + "Deprecations", ValidateDeprecations.class, task -> {
+            task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
+            task.getInput().set(jar.flatMap(AbstractArchiveTask::getArchiveFile));
+            var patcher = this.project.getExtensions().findByType(LegacyPatcherExtension.class);
+            if (patcher != null)
+                task.getMcVersion().set(patcher.getMcVersion());
+        });
+        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME, check -> check.dependsOn(ret));
         return ret;
     }
     // ===============================================================================

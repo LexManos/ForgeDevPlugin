@@ -210,6 +210,13 @@ public abstract class Installer {
                 json,
                 launcherJson
             );
+
+            // Get the base as a Provider
+            task.dependsOn(base);
+            var baseZip = project.getProviders().provider(() -> project.zipTree(base.flatMap(DownloadDependency::getOutput)));
+            // And set the base manifest
+            var baseManifest = baseZip.map(tree -> tree.getFiles().stream().filter(f -> f.getName().equals("MANIFEST.MF")).findFirst().orElseThrow());
+            task.manifest(manifest -> manifest.from(baseManifest));
         });
 
         json.configure(task -> {

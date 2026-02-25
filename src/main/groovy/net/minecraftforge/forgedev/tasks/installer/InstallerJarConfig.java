@@ -57,6 +57,7 @@ public abstract class InstallerJarConfig extends DefaultTask {
         // Add the base here, so that the buildscript configuration runs first
         installer.get().jar( task -> {
             task.from(getArchiveOperations().zipTree(base.map(DownloadDependency::getOutput)), cfg -> {
+                cfg.exclude("META-INF/MANIFEST.MF");
                 cfg.setDuplicatesStrategy(DuplicatesStrategy.EXCLUDE);
             });
         });

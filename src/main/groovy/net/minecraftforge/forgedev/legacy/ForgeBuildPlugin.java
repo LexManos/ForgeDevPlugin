@@ -7,7 +7,6 @@ package net.minecraftforge.forgedev.legacy;
 import net.minecraftforge.forgedev.tasks.filtering.LegacyFilterNewJar;
 import net.minecraftforge.forgedev.tasks.generation.GeneratePatcherConfigV2;
 import net.minecraftforge.forgedev.tasks.installertools.DownloadMappings;
-import net.minecraftforge.forgedev.tasks.installertools.ExtractInheritance;
 import net.minecraftforge.forgedev.tasks.mcp.MavenizerMCPSetup;
 import net.minecraftforge.forgedev.tasks.mcp.MavenizerRawArtifact;
 import net.minecraftforge.forgedev.tasks.obfuscation.LegacyRenameJar;
@@ -27,9 +26,6 @@ import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 
 abstract class ForgeBuildPlugin extends EnhancedPlugin<Project> {
     static final String NAME = "forge-build";
@@ -66,24 +62,6 @@ abstract class ForgeBuildPlugin extends EnhancedPlugin<Project> {
             var downloadClientMappings = tasks.named("downloadClientMappings", DownloadMappings.class);
             var downloadServerMappings = tasks.named("downloadServerMappings", DownloadMappings.class);
             var jar = tasks.named("jar", Jar.class);
-
-            var extractInheritance = tasks.register("extractInheritance", ExtractInheritance.class, task -> {
-                task.setGroup("Forge downloads");
-                task.dependsOn(setupMCP);
-
-                task.getAdditionalArgs().add("--annotations");
-                task.getInput().fileProvider(tasks.named("genJoinedBinPatches", CreateBinPatches.class).map(t -> t.getClean().getSingleFile()));
-                task.getLibraries().from(setupMCP.flatMap(MavenizerMCPSetup::getLibrariesList).map(libraries -> {
-                    try {
-                        return Files.readAllLines(libraries.getAsFile().toPath()).stream()
-                                .map(line -> line.substring(3)) // remove -e=
-                                .map(File::new)
-                                .toList();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }));
-            });
 
             var createClientOfficial = tasks.register("createClientOfficial", LegacyRenameJar.class, task -> {
                 task.dependsOn(setupMCP);

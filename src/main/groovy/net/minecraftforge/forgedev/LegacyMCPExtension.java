@@ -17,6 +17,7 @@ import org.gradle.api.provider.ProviderFactory;
 import org.gradle.jvm.toolchain.JavaLauncher;
 
 import javax.inject.Inject;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -94,27 +95,29 @@ public abstract class LegacyMCPExtension {
     public MinecraftFiles getFiles(String version) {
         var ret = this.files.get(version);
         if (ret == null) {
-            //var client = mavenizer("client", version, false);
-            //var server = mavenizer("server", version, false);
-            var joined = mavenizer("joined", version, false);
+            //var client = mavenizer("client", version, true);
+            //var server = mavenizer("server", version, true);
+            var joined = mavenizer("joined", version, true);
 
-            ret = getObjects().newInstance(MinecraftFiles.class, plugin, joined);
+            ret = getObjects().newInstance(MinecraftFiles.class, plugin, joined.info, joined.output);
             this.files.put(version, ret);
         }
         return ret;
     }
 
-    private Provider<MCPSetupFiles> mavenizer(String pipeline, String version, boolean searge) {
+    private record Output(Provider<MCPSetupFiles> info, File output) {}
+    private Output mavenizer(String pipeline, String version, boolean searge) {
         var fileName = "mavenizer/mcp-" + version + "-files-" + pipeline;
         if (searge)
             fileName += "-searge";
+
         // TODO: [ForgeDevPlugin] Make single mavenizer task to get the 'vanilla' files we need
         // We also need a way to get the 'slim' artifacts for older versions which don't use bundled server jar
         // Could still name it 'serverExtracted' in the json
         var output = this.plugin.localCaches().file("mavenizer/" + fileName + ".jar").get().getAsFile();
         var outputJson = this.plugin.localCaches().file("mavenizer/" + fileName + ".json").get().getAsFile();
 
-        return this.getProviders().of(MavenizerValueSource.class, spec -> {
+        var info = this.getProviders().of(MavenizerValueSource.class, spec -> {
             spec.parameters(params -> {
                 var tool = this.plugin.getTool(Tools.MAVENIZER);
                 params.getClasspath().setFrom(tool.getClasspath());
@@ -142,18 +145,22 @@ public abstract class LegacyMCPExtension {
             });
         })
         .map(v -> JsonData.fromJson(outputJson, MCPSetupFiles.class));
+
+        return new Output(info, output);
     }
 
     public static abstract class MinecraftFiles {
         private final ForgeDevPlugin plugin;
         private final Provider<MCPSetupFiles> info;
+        private final File joinedSearge;
         protected abstract @Inject ObjectFactory getObjects();
         protected abstract @Inject ProviderFactory getProviders();
 
         @Inject
-        public MinecraftFiles(ForgeDevPlugin plugin, Provider<MCPSetupFiles> info) {
+        public MinecraftFiles(ForgeDevPlugin plugin, Provider<MCPSetupFiles> info, File joinedSearge) {
             this.plugin = plugin;
             this.info = info;
+            this.joinedSearge = joinedSearge;
         }
 
         private Provider<RegularFile> get(Transformer<String, MCPSetupFiles> field) {
@@ -179,6 +186,12 @@ public abstract class LegacyMCPExtension {
         }
         public Provider<RegularFile> getServerMappings() {
             return get(info -> info.serverMappings);
+        }
+        public Provider<RegularFile> getLibraryList() {
+            return get(info -> info.librariesList);
+        }
+        public Provider<RegularFile> getJoinedSearge() {
+            return get(info -> this.joinedSearge.getAbsolutePath());
         }
     }
 }

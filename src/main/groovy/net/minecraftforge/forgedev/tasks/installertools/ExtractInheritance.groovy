@@ -6,6 +6,7 @@ package net.minecraftforge.forgedev.tasks.installertools
 
 import groovy.transform.CompileStatic
 import net.minecraftforge.forgedev.Tools
+import net.minecraftforge.forgedev.tasks.SingleFileOutput
 import net.minecraftforge.forgedev.tasks.ToolExec
 import net.minecraftforge.gradleutils.shared.Tool
 import org.gradle.api.file.ConfigurableFileCollection
@@ -21,7 +22,7 @@ import org.gradle.process.ExecResult
 import javax.inject.Inject
 
 @CompileStatic
-abstract class ExtractInheritance extends ToolExec {
+abstract class ExtractInheritance extends ToolExec implements SingleFileOutput {
     abstract @InputFile RegularFileProperty getInput();
 
     abstract @InputFiles @Classpath ConfigurableFileCollection getLibraries();
