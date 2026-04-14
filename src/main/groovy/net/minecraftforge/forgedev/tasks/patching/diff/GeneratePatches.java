@@ -4,49 +4,26 @@
  */
 package net.minecraftforge.forgedev.tasks.patching.diff;
 
-import org.gradle.api.file.Directory;
+import net.minecraftforge.forgedev.Util;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputDirectory;
-import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.process.ExecResult;
+import org.jspecify.annotations.Nullable;
 
 import javax.inject.Inject;
-import java.io.File;
+import java.io.IOException;
 
 public abstract class GeneratePatches extends BaseDiffPatchExec {
-    // region Modified ========================================================
-    public abstract @InputFile @Optional RegularFileProperty getModifiedFile();
-    public abstract @InputDirectory @Optional DirectoryProperty getModifiedDirectory();
-    public void setModified(File file) {
-        if (file.isDirectory()) {
-            this.getModifiedFile().unset();
-            this.getModifiedDirectory().set(file);
-        } else {
-            this.getModifiedFile().set(file);
-            this.getModifiedDirectory().unset();
-        }
-    }
-    public void setModified(RegularFileProperty file) {
-        this.getModifiedFile().set(file);
-        this.getModifiedDirectory().unset();
-    }
-    public void setModified(RegularFile file) {
-        this.getModifiedFile().set(file);
-        this.getModifiedDirectory().unset();
-    }
-    public void setModified(DirectoryProperty dir) {
-        this.getModifiedFile().unset();
-        this.getModifiedDirectory().set(dir);
-    }
-    public void setModified(Directory dir) {
-        this.getModifiedFile().unset();
-        this.getModifiedDirectory().set(dir);
-    }
-    // endregion
+    public abstract @InputFiles ConfigurableFileCollection getModified();
+    public abstract @OutputFile RegularFileProperty getOutput();
+    public abstract @Optional @OutputDirectory DirectoryProperty getOutputDirectory();
 
     // Diff specific
     public abstract @Input Property<Boolean> getDiff();
@@ -58,6 +35,7 @@ public abstract class GeneratePatches extends BaseDiffPatchExec {
     public GeneratePatches() {
         this.getDiff().convention(false);
         this.getAutoHeader().convention(false);
+        this.getOutput().convention(this.getDefaultOutputFile());
     }
 
     @Override
@@ -76,9 +54,19 @@ public abstract class GeneratePatches extends BaseDiffPatchExec {
         // https://github.com/TheCBProject/DiffPatch/blob/204d393ee23f5cd4298f771c7b9157ee21eb3b62/src/main/java/io/codechicken/diffpatch/cli/DiffPatchCli.java#L155
         // --diff {base} {modified}
         this.args(
+            "--output", this.getOutput().getAsFile().get(),
             "--diff",
-            resolve("input", getInputFile(), getInputDirectory()),
-            resolve("modified", getModifiedFile(), getModifiedDirectory())
+            this.getInput().getSingleFile(),
+            this.getModified().getSingleFile()
         );
+    }
+
+    @Override
+    protected @Nullable ExecResult exec() throws IOException {
+        var result = super.exec().assertNormalExitValue().rethrowFailure();
+        var output = getOutput().getAsFile().get();
+        if (this.getOutputDirectory().isPresent())
+            Util.extractZip(output, this.getOutputDirectory().getAsFile().get(), true);
+        return result;
     }
 }

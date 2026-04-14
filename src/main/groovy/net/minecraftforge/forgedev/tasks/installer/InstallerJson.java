@@ -6,13 +6,14 @@ package net.minecraftforge.forgedev.tasks.installer;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraftforge.forgedev.legacy.tasks.Util;
+import net.minecraftforge.forgedev.Util;
 import net.minecraftforge.forgedev.legacy.values.LibraryInfo;
 import net.minecraftforge.forgedev.legacy.values.MinimalResolvedArtifact;
 import net.minecraftforge.forgedev.tasks.SingleFileOutput;
 import net.minecraftforge.forgedev.tasks.installer.steps.Extract;
 import net.minecraftforge.forgedev.tasks.installer.steps.ExtractBundle;
 import net.minecraftforge.forgedev.tasks.installer.steps.Step;
+import net.minecraftforge.util.hash.HashFunction;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -135,7 +136,7 @@ public abstract class InstallerJson extends DefaultTask {
     }
 
     private static String hash(File file) {
-        return '\'' + Util.sha1(file) + '\'';
+        return '\'' + HashFunction.SHA1.sneakyHash(file) + '\'';
     }
 
     @TaskAction

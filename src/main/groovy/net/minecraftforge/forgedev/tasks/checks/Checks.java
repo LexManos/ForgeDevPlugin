@@ -5,8 +5,7 @@
 package net.minecraftforge.forgedev.tasks.checks;
 
 import net.minecraftforge.forgedev.base.MCPBase;
-import net.minecraftforge.forgedev.legacy.tasks.Util;
-import net.minecraftforge.forgedev.patches.Patches;
+import net.minecraftforge.forgedev.Util;
 import net.minecraftforge.forgedev.tasks.installertools.ExtractInheritance;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.gradle.api.Action;

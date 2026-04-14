@@ -296,7 +296,7 @@ public abstract class ForgeDevExtension {
     public Patches getPatches(String name) {
         var ret =  this.patches.get(name);
         if (ret == null) {
-            ret = getObjects().newInstance(PatchesImpl.class, this, name, this.project.getTasks());
+            ret = getObjects().newInstance(PatchesImpl.class, this, name, this.project);
             this.patches.put(name, ret);
         }
         return ret;

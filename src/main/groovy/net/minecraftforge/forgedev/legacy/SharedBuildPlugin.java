@@ -4,7 +4,6 @@
  */
 package net.minecraftforge.forgedev.legacy;
 
-import net.minecraftforge.forgedev.legacy.tasks.Util;
 import net.minecraftforge.forgedev.tasks.WriteManifest;
 import net.minecraftforge.forgedev.publishvalidate.ValidatePublish;
 import net.minecraftforge.gradleutils.shared.SharedUtil;
@@ -26,10 +25,6 @@ import javax.inject.Inject;
 import java.util.List;
 
 abstract class SharedBuildPlugin implements Plugin<Project> {
-    static {
-        Util.init();
-    }
-
     protected abstract @Inject ProjectLayout getLayout();
 
     @Inject

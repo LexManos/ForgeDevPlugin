@@ -8,6 +8,7 @@ import net.minecraftforge.forgedev.ForgeDevExtension;
 import net.minecraftforge.forgedev.Tools;
 import net.minecraftforge.forgedev.base.MCPBase;
 import net.minecraftforge.forgedev.base.PatcherBase;
+import net.minecraftforge.forgedev.tasks.SingleFileOutput;
 import net.minecraftforge.forgedev.tasks.patching.binary.CreateBinPatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.GeneratePatches;
 import org.gradle.api.Action;
@@ -130,7 +131,7 @@ public abstract class UserDev {
             task.getPatchesModifiedPrefix().set(make.flatMap(GeneratePatches::getModifiedPathPrefix));
         });
         jar(task -> {
-            task.from(project.zipTree(make.flatMap(GeneratePatches::getOutputFile)), e -> e.into("patches/"));
+            task.from(project.zipTree(make.flatMap(SingleFileOutput::getOutput)), e -> e.into("patches/"));
         });
     }
 

@@ -5,7 +5,7 @@
 package net.minecraftforge.forgedev.publishvalidate;
 
 import net.minecraftforge.forgedev.ForgeDevExtension;
-import net.minecraftforge.forgedev.legacy.tasks.Util;
+import net.minecraftforge.forgedev.Util;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;

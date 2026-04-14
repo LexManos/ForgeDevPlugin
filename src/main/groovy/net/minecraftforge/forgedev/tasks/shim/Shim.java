@@ -19,7 +19,6 @@ import org.jetbrains.annotations.ApiStatus;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 
 public abstract class Shim {
     public static final String DEFAULT_NAME = "serverShim";

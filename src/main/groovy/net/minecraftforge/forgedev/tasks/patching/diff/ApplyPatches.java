@@ -4,82 +4,25 @@
  */
 package net.minecraftforge.forgedev.tasks.patching.diff;
 
-import org.gradle.api.file.Directory;
-import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.RegularFile;
-import org.gradle.api.file.RegularFileProperty;
+import net.minecraftforge.forgedev.Util;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputDirectory;
-import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
-import org.gradle.api.tasks.OutputDirectory;
-import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.OutputFiles;
 import org.gradle.process.ExecResult;
 import org.jspecify.annotations.Nullable;
 
 import javax.inject.Inject;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 public abstract class ApplyPatches extends BaseDiffPatchExec {
-    // region Patches =========================================================
-    public abstract @InputFile @Optional RegularFileProperty getPatchesFile();
-    public abstract @InputDirectory @Optional DirectoryProperty getPatchesDirectory();
-    public void setPatches(File file) {
-        if (file.isDirectory()) {
-            this.getPatchesFile().unset();
-            this.getPatchesDirectory().set(file);
-        } else {
-            this.getPatchesFile().set(file);
-            this.getPatchesDirectory().unset();
-        }
-    }
-    public void setPatches(RegularFile file) {
-        this.getPatchesFile().set(file);
-        this.getPatchesDirectory().unset();
-    }
-    public void setPatches(DirectoryProperty dir) {
-        this.getPatchesFile().unset();
-        this.getPatchesDirectory().set(dir);
-    }
-    public void setPatches(Directory dir) {
-        this.getPatchesFile().unset();
-        this.getPatchesDirectory().set(dir);
-    }
-    // endregion
-    // region Rejects =========================================================
-    public abstract @OutputFile @Optional RegularFileProperty getRejectsFile();
-    public abstract @OutputDirectory @Optional DirectoryProperty getRejectsDirectory();
-    public void setRejects(File file) {
-        if (file.isDirectory()) {
-            this.getRejectsFile().unset();
-            this.getRejectsDirectory().set(file);
-        } else {
-            this.getRejectsFile().set(file);
-            this.getRejectsDirectory().unset();
-        }
-    }
-    public void setRejects(RegularFileProperty file) {
-        this.getRejectsFile().set(file);
-        this.getRejectsDirectory().unset();
-    }
-    public void setRejects(RegularFile file) {
-        this.getRejectsFile().set(file);
-        this.getRejectsDirectory().unset();
-    }
-    public void setRejects(DirectoryProperty dir) {
-        this.getRejectsFile().unset();
-        this.getRejectsDirectory().set(dir);
-    }
-    public void setRejects(Directory dir) {
-        this.getRejectsFile().unset();
-        this.getRejectsDirectory().set(dir);
-    }
-    // endregion
+    public abstract @InputFiles ConfigurableFileCollection getPatches();
+    public abstract @OutputFiles @Optional ConfigurableFileCollection getRejects();
 
     // Patch specific
     public abstract @Input Property<Boolean> getFailOnError();
@@ -105,8 +48,8 @@ public abstract class ApplyPatches extends BaseDiffPatchExec {
         super.addArguments();
 
         //region Patch specific
-        if (this.getRejectsFile().isPresent() || this.getRejectsDirectory().isPresent())
-            this.args("--reject", resolve("rejects", getRejectsFile(), getRejectsDirectory()));
+        if (!this.getRejects().isEmpty())
+            this.args("--reject", getRejects().getSingleFile());
         if (this.getArchiveRejects().isPresent())
             this.args("--archive-rejects", this.getArchiveRejects().get());
         if (this.getFuzz().isPresent())
@@ -129,36 +72,39 @@ public abstract class ApplyPatches extends BaseDiffPatchExec {
         // --patch {base} {patches}
         this.args(
             "--patch",
-            resolve("input", getInputFile(), getInputDirectory()),
-            resolve("patches", getPatchesFile(), getPatchesDirectory())
+            getInput().getSingleFile(),
+            getPatches().getSingleFile()
         );
         //endregion
     }
 
     @Override
     protected @Nullable ExecResult exec() throws IOException {
+        ExecResult result = null;
+        var output = getOutput().getAsFile().get();
+
         // No patches, not sure when this would ever come up, but isn't hard to support
-        if (!this.getPatchesFile().isPresent() && !this.getPatchesDirectory().isPresent()) {
-            var output = resolve("output",  getOutputFile(), getOutputDirectory());
-            var input =  resolve("input",  getInputFile(), getInputDirectory());
+        if (this.getPatches().isEmpty()) {
+            var input =  getInput().getSingleFile();
             if (output.getParent() != null)
                 Files.createDirectories(output.getParentFile().toPath());
             Files.copy(input.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            return null;
+        } else {
+            result = super.exec();
+
+            var exitValue = result.getExitValue();
+            if (exitValue != 0) {
+                // patches failed
+                if (exitValue != 1)
+                    result.rethrowFailure();
+
+                // some other error
+                if (this.getFailOnError().get())
+                    result.assertNormalExitValue();
+            }
         }
-
-        var result = super.exec();
-
-        var exitValue = result.getExitValue();
-        if (exitValue != 0) {
-            // patches failed
-            if (exitValue != 1)
-                result.rethrowFailure();
-
-            // some other error
-            if (this.getFailOnError().get())
-                result.assertNormalExitValue();
-        }
+        if (this.getOutputDirectory().isPresent())
+            Util.extractZip(output, this.getOutputDirectory().getAsFile().get(), true);
         return result;
     }
 }

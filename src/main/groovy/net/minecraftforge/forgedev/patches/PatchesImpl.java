@@ -8,12 +8,14 @@ import net.minecraftforge.forgedev.ForgeDevExtension;
 import net.minecraftforge.forgedev.base.PatcherBase;
 import net.minecraftforge.forgedev.tasks.patching.diff.ApplyPatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.GeneratePatches;
+import org.gradle.api.Project;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.ProviderFactory;
-import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.TaskProvider;
 
 import javax.inject.Inject;
+import java.io.IOException;
+import java.nio.file.Files;
 
 public abstract class PatchesImpl implements Patches {
     private final String name;
@@ -26,10 +28,43 @@ public abstract class PatchesImpl implements Patches {
     protected abstract @Inject ProviderFactory getProviders();
 
     @Inject
-    public PatchesImpl(ForgeDevExtension extension, String name, TaskContainer tasks) {
+    public PatchesImpl(ForgeDevExtension extension, String name, Project project) {
         this.name = name;
-        this.apply = tasks.register("applyPatches", ApplyPatches.class);
-        this.make = tasks.register("makePatches", GeneratePatches.class);
+        this.apply = project.getTasks().register("applyPatches", ApplyPatches.class);
+        this.make = project.getTasks().register("makePatches", GeneratePatches.class);
+        var buildDir = project.getLayout().getProjectDirectory();
+        var updating = extension.getProblems().test("net.minecraftforge.forge.build.updating");
+
+        apply.configure(task -> {
+            task.getInput().setFrom(getBase().getNamedSources());
+            task.getPatches().setFrom(getPatches());
+            task.getOutputDirectory().set(getPatched());
+            task.getFailOnError().set(false);
+
+            if (updating) {
+                task.getMode().set("fuzzy");
+                task.getRejects().setFrom(buildDir.dir("rejects"));
+                task.getArchiveRejects().unsetConvention();
+                task.getFailOnError().set(false);
+            }
+        });
+
+        make.configure(task -> {
+            task.setOnlyIf(t -> getPatches().isPresent());
+            task.getAutoHeader().set(true);
+            task.getLineEndings().convention("\n");
+            task.getOutputDirectory().set(getPatches());
+        });
+
+        // Is this needed? AfterEvaluate should be avoided
+        project.afterEvaluate(p -> {
+            // Automatically create the patches folder if it does not exist
+            try {
+                Files.createDirectories(getPatches().get().getAsFile().toPath());
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create patches folder", e);
+            }
+        });
     }
 
     @Override

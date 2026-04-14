@@ -64,6 +64,16 @@ public abstract class MCPData extends MavenizerData {
             else
                 ret.add(this.getMappingChannelInput().get());
         }
+
+        for (var file : this.getAccessTransformers()) {
+            ret.add("--at");
+            ret.add(file.getAbsolutePath());
+        }
+
+        for (var file : this.getSideAnnotationStrippers()) {
+            ret.add("--sas");
+            ret.add(file.getAbsolutePath());
+        }
         return ret;
     }
 
