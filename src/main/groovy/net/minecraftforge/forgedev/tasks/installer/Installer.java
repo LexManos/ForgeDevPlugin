@@ -163,7 +163,6 @@ public abstract class Installer {
         this.jarConfig.configure(task -> task.library(info, action));
     }
 
-
     /// Helper to set the base installer to Forge's this is meant to make it easy to do something like:
     /// installer {
     ///   baseVersion = "1.0"

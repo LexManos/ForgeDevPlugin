@@ -7,6 +7,7 @@ package net.minecraftforge.forgedev.tasks.mcp;
 import net.minecraftforge.forgedev.ForgeDevPlugin;
 import net.minecraftforge.forgedev.ForgeDevProblems;
 import net.minecraftforge.forgedev.Tools;
+import net.minecraftforge.forgedev.Util;
 import net.minecraftforge.gradleutils.shared.Tool;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
@@ -62,25 +63,9 @@ abstract class MavenizerValueSource<T, P extends MavenizerValueSource.Parameters
             }
 
             LOGGER.info("Executing Mavenizer: ");
-            var itr = params.getClasspath().iterator();
-            LOGGER.info("  Classpath: {}", itr.next().getAbsolutePath());
-            while (itr.hasNext())
-                LOGGER.info("             {}", itr.next().getAbsolutePath());
-
+            Util.logFiles(LOGGER, "  Classpath", params.getClasspath().getFiles());
             LOGGER.info("  Java: {}", params.getJavaLauncher().get());
-            var args = spec.getArgs();
-            var prefix = "  Arguments: ";
-            for (int x = 0; x < args.size(); x++) {
-                var current = args.get(x);
-                var next = args.size() > x + 1 ? args.get(x + 1) : null;
-                var line = current;
-                if (current.startsWith("--") && next != null && !next.startsWith("--")) {
-                    x++;
-                    line += ' ' + next;
-                }
-                LOGGER.info("{}{}", prefix, line);
-                prefix = "             ";
-            }
+            Util.logArgs(LOGGER, "  Arguments", spec.getArgs());
         }).rethrowFailure().assertNormalExitValue().getExitValue();
     }
 

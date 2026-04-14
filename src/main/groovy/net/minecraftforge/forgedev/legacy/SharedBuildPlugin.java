@@ -5,7 +5,8 @@
 package net.minecraftforge.forgedev.legacy;
 
 import net.minecraftforge.forgedev.legacy.tasks.Util;
-import net.minecraftforge.forgedev.legacy.tasks.WriteManifest;
+import net.minecraftforge.forgedev.tasks.WriteManifest;
+import net.minecraftforge.forgedev.publishvalidate.ValidatePublish;
 import net.minecraftforge.gradleutils.shared.SharedUtil;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -38,8 +39,6 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
     public void apply(Project project) {
         project.setGroup("net.minecraftforge");
 
-        var layout = getLayout();
-
         var tasks = project.getTasks();
 
         var generateResources = SharedUtil.runFirst(project, tasks.register("generateResources"));
@@ -49,11 +48,11 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
 
         project.getPluginManager().withPlugin("java", javaAppliedPlugin -> {
             tasks.withType(Javadoc.class).configureEach(task -> {
+                task.setFailOnError(false);
                 task.options(minimalOptions -> {
                     if (minimalOptions instanceof CoreJavadocOptions coreOptions) {
                         coreOptions.setMemberLevel(JavadocMemberLevel.PUBLIC);
-                        coreOptions.addBooleanOption("Xdoclint:all", true);
-                        coreOptions.addBooleanOption("-Xdoclint:missing", true);
+                        coreOptions.addBooleanOption("Xdoclint:all,-missing", true);
                     }
                 });
             });
@@ -63,6 +62,12 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
                 options.setWarnings(false); // Shutup deprecated for removal warnings
                 options.getForkOptions().setMemoryMaximumSize("6G"); // Needed to make compiling faster, and not run out of heap space in some cases.
             });
+
+            // Write the manifest to our resources directory because we use it for version information
+            WriteManifest.register(project, tasks.named("jar", Jar.class));
+
+            // Configure all sourcesets to run processResources at the correct time
+            configureSourceSets(project);
         });
 
         project.getPluginManager().withPlugin("eclipse", eclipseAppliedPlugin -> {
@@ -75,31 +80,26 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
             );
         });
 
-        project.afterEvaluate(this::finish);
+        project.getPluginManager().withPlugin("maven-publish", maven -> ValidatePublish.onApplyMavenPublish(project));
     }
 
-    private void finish(Project project) {
+    private void configureSourceSets(Project project) {
         var tasks = project.getTasks();
-
-        var jar = project.getPluginManager().hasPlugin("net.minecraftforge.forgedev") ? "universalJar" : "jar";
-        WriteManifest.register(project, tasks.named(jar, Jar.class));
-
-        for (var sourceSet : project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets()) {
+        var java = project.getExtensions().getByType(JavaPluginExtension.class);
+        java.getSourceSets().all(sourceSet -> {
             var existing = tasks.getNames();
-            if (!existing.contains(sourceSet.getSourcesJarTaskName())
-                || !existing.contains(sourceSet.getProcessResourcesTaskName()))
-                continue;
+            if (!existing.contains(sourceSet.getProcessResourcesTaskName()))
+                return;
 
             var processResources = tasks.named(sourceSet.getProcessResourcesTaskName());
             var names = List.of(
                 sourceSet.getCompileJavaTaskName(),
-                sourceSet.getCompileTaskName("groovy"),
                 sourceSet.getSourcesJarTaskName()
             );
             for (var name : names) {
                 if (existing.contains(name))
                     tasks.named(name, task -> task.dependsOn(processResources));
             }
-        }
+        });
     }
 }

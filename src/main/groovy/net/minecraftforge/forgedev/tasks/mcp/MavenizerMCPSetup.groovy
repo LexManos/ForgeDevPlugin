@@ -24,8 +24,7 @@ import javax.inject.Inject
 abstract class MavenizerMCPSetup extends MavenizerMCPTask {
     abstract @InputFile @Optional RegularFileProperty getAccessTransformerConfig()
     abstract @InputFile @Optional RegularFileProperty getSideAnnotationStripperConfig()
-    abstract @Input Property<Boolean> getRename();
-    abstract @Input @Optional Property<String> getParchment()
+    abstract @Input @Optional Property<String> getMappings();
 
     protected abstract @OutputFile RegularFileProperty getSetupFiles()
 
@@ -40,8 +39,6 @@ abstract class MavenizerMCPSetup extends MavenizerMCPTask {
 
     @Inject
     MavenizerMCPSetup() {
-        rename.convention(true)
-
         setupFiles.convention(this.defaultOutputDirectory.map { it.file('setup_files.json') })
 
         versionManifest.convention(this.defaultOutputDirectory.map { it.file('manifest.json') })
@@ -58,11 +55,11 @@ abstract class MavenizerMCPSetup extends MavenizerMCPTask {
     protected void addArguments() {
         super.addArguments()
 
-        this.args('--mappings', this.rename)
+        if (this.mappings.isPresent())
+            this.args('--mappings', this.mappings)
 
         this.args('--at', this.accessTransformerConfig)
         this.args('--sas', this.sideAnnotationStripperConfig)
-        this.args('--parchment', this.parchment)
 
         this.args('--output-files', this.setupFiles)
     }
