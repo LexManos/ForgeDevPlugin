@@ -8,9 +8,11 @@ import net.minecraftforge.forgedev.Util;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.java.archives.Manifest;
 import org.gradle.api.java.archives.internal.ManifestInternal;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.TaskProvider;
@@ -25,24 +27,28 @@ public abstract class WriteManifest extends DefaultTask implements SingleFileOut
     public static TaskProvider<WriteManifest> register(Project project, TaskProvider<? extends Jar> jar) {
         var write = project.getTasks().register("writeManifest", WriteManifest.class);
         write.configure(task -> {
-            task.getInputBytes().set(jar.map(Jar::getManifest).map(manifest -> {
-                try (var os = new ByteArrayOutputStream()) {
-                    // RATIONALE: ManifestInternal has not changed since Gradle 2.14
-                    // Due to the hacky nature of needing the proper manifest in the resources, this is the only good way of doing this
-                    // The DefaultManifest object cannot be serialized into the Gradle cache, and the normal Manifest interface does not have this method
-                    // This should be the only Gradle internals we need to use in all of ForgeDev, thankfully
-                    ((ManifestInternal)manifest).writeTo(os);
-                    return os.toByteArray();
-                } catch (IOException e) {
-                    return Util.sneak(e);
-                }
-            }));
+            // We don't use a map/privider here because we explicitly are reading just the config of the task.
+            task.getInputBytes().set(getManifestBytes(jar.get().getManifest()));
         });
-        project.getTasks().named("processResources").configure(task -> task.dependsOn(write));
         return write;
     }
 
+    private static byte[] getManifestBytes(Manifest manifest) {
+        try (var os = new ByteArrayOutputStream()) {
+            // RATIONALE: ManifestInternal has not changed since Gradle 2.14
+            // Due to the hacky nature of needing the proper manifest in the resources, this is the only good way of doing this
+            // The DefaultManifest object cannot be serialized into the Gradle cache, and the normal Manifest interface does not have this method
+            // This should be the only Gradle internals we need to use in all of ForgeDev, thankfully
+            ((ManifestInternal)manifest).writeTo(os);
+            return os.toByteArray();
+        } catch (IOException e) {
+            return Util.sneak(e);
+        }
+    }
+
     protected abstract @Input Property<byte[]> getInputBytes();
+    // We can't use an output file because it causes task dependency hell.
+    // This **should** eventually die in the launcher re-write when we stop using the manifest for runtime version info.
     public abstract @Override @OutputFile RegularFileProperty getOutput();
 
     @Inject

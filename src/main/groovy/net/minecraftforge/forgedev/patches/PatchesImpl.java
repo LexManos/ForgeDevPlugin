@@ -51,6 +51,8 @@ public abstract class PatchesImpl implements Patches {
 
         make.configure(task -> {
             task.setOnlyIf(t -> getPatches().isPresent());
+            task.getInput().setFrom(getBase().getNamedSources());
+            task.getModified().setFrom(getPatched());
             task.getAutoHeader().set(true);
             task.getLineEndings().convention("\n");
             task.getOutputDirectory().set(getPatches());

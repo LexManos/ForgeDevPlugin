@@ -6,6 +6,7 @@ package net.minecraftforge.forgedev.patches;
 
 import net.minecraftforge.forgedev.ForgeDevExtension;
 import net.minecraftforge.forgedev.ForgeDevPlugin;
+import net.minecraftforge.forgedev.tasks.SingleFileOutput;
 import net.minecraftforge.forgedev.tasks.patching.binary.ApplyBinPatches;
 import net.minecraftforge.forgedev.tasks.patching.binary.CreateBinPatches;
 import org.gradle.api.Action;
@@ -29,6 +30,11 @@ public abstract class BinaryPatchesImpl implements BinaryPatches {
         this.extension = extension;
         this.create = tasks.register(name + "CreateBinPatches", CreateBinPatches.class);
         this.apply = tasks.register(name + "ApplyBinPatches", ApplyBinPatches.class);
+        this.apply.configure(task -> {
+            task.getApply().setFrom(create.flatMap(SingleFileOutput::getOutput));
+            task.getData().set(true);
+            task.getUnpatched().set(true);
+        });
     }
 
     public TaskProvider<CreateBinPatches> getCreate() {

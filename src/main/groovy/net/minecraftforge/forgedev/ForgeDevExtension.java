@@ -6,7 +6,6 @@ package net.minecraftforge.forgedev;
 
 import net.minecraftforge.forgedev.base.MCPBase;
 import net.minecraftforge.forgedev.base.MCPBaseImpl;
-import net.minecraftforge.forgedev.base.PatcherBase;
 import net.minecraftforge.forgedev.values.CIRuntime;
 import net.minecraftforge.forgedev.patches.BinaryPatches;
 import net.minecraftforge.forgedev.patches.BinaryPatchesImpl;
@@ -25,7 +24,7 @@ import net.minecraftforge.forgedev.tasks.shim.Shim;
 import net.minecraftforge.forgedev.tasks.userdev.UserDev;
 import net.minecraftforge.forgedev.values.GitVersionValueSource;
 import net.minecraftforge.forgedev.values.MavenArtifact;
-import net.minecraftforge.forgedev.values.MinecraftData;
+import net.minecraftforge.forgedev.values.MinecraftFiles;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.Project;
@@ -258,11 +257,11 @@ public abstract class ForgeDevExtension {
     // region Vanilla Files ================================================
     // Access to vanilla files, such as the client/server jar, version json
     // =====================================================================
-    private final Map<String, MinecraftData> minecraftFiles = new HashMap<>();
-    public MinecraftData  minecraftFiles(String version) {
+    private final Map<String, MinecraftFiles> minecraftFiles = new HashMap<>();
+    public MinecraftFiles minecraftFiles(String version) {
         var ret =  this.minecraftFiles.get(version);
         if (ret == null) {
-            ret = this.getObjects().newInstance(MinecraftData.class, this.project, this.plugin, version);
+            ret = this.getObjects().newInstance(MinecraftFiles.class, this.project, this.plugin, version);
             this.minecraftFiles.put(version, ret);
         }
         return ret;

@@ -54,7 +54,6 @@ public abstract class GeneratePatches extends BaseDiffPatchExec {
         // https://github.com/TheCBProject/DiffPatch/blob/204d393ee23f5cd4298f771c7b9157ee21eb3b62/src/main/java/io/codechicken/diffpatch/cli/DiffPatchCli.java#L155
         // --diff {base} {modified}
         this.args(
-            "--output", this.getOutput().getAsFile().get(),
             "--diff",
             this.getInput().getSingleFile(),
             this.getModified().getSingleFile()
@@ -63,7 +62,7 @@ public abstract class GeneratePatches extends BaseDiffPatchExec {
 
     @Override
     protected @Nullable ExecResult exec() throws IOException {
-        var result = super.exec().assertNormalExitValue().rethrowFailure();
+        var result = super.exec().rethrowFailure();
         var output = getOutput().getAsFile().get();
         if (this.getOutputDirectory().isPresent())
             Util.extractZip(output, this.getOutputDirectory().getAsFile().get(), true);

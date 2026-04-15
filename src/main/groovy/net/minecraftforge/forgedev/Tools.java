@@ -17,11 +17,9 @@ public final class Tools {
     public static final Tool INSTALLER = Tool.ofForge("installer", "net.minecraftforge:installer:2.2.9:fatjar", 8);
     public static final Tool SHIM = Tool.ofForge("shim", "net.minecraftforge:bootstrap-shim:2.1.8", 8);
     public static final Tool JARCOMPATIBILITYCHECKER = Tool.ofForge("jarcompatibilitychecker", "net.minecraftforge:JarCompatibilityChecker:0.1.28:all", 8);
-    public static final Tool RENAMER = Tool.ofForge("renamer", "net.minecraftforge:ForgeAutoRenamingTool:1.1.1:all", 8);
     public static final Tool SLIMELAUNCHER = Tool.ofForge("slimelauncher", "net.minecraftforge:slime-launcher:0.1.8", 8, "net.minecraftforge.launcher.Main");
     public static final Tool GITVERSION = Tool.ofForge("gitversion", "net.minecraftforge:gitversion:0.8.0:fatjar", 17);
 
     // LIBRARIES
-    public static final Tool SRGUTILS = Tool.ofForge("srgutils", "net.minecraftforge:srgutils:0.5.14", 8);
     public static final Tool FASTCSV = Tool.of("fastcsv", "de.siegmar:fastcsv:3.7.0", Constants.MAVEN_CENTRAL, 11);
 }

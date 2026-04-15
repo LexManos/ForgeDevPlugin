@@ -13,15 +13,15 @@ import java.io.File;
 import java.util.List;
 
 /**
- * A wrapper around Mavenzier's --minecraft-data task.
+ * A wrapper around Mavenzier's --minecraft-files task.
  * This exposes a lot of vanilla files with no modifications.
  * Basically, I had the tasks written in Mavenizer and don't want to duplicate them here.
  */
-public abstract class MinecraftData extends MavenizerData {
+public abstract class MinecraftFiles extends MavenizerData {
     private final String version;
 
     @Inject
-    public MinecraftData(final Project project, final ForgeDevPlugin plugin, String version) {
+    public MinecraftFiles(final Project project, final ForgeDevPlugin plugin, String version) {
         super(project, plugin);
         this.version = version;
     }
@@ -34,7 +34,7 @@ public abstract class MinecraftData extends MavenizerData {
     @Override
     public List<String> getArgs() {
         return List.of(
-            "--minecraft-data",
+            "--minecraft-files",
             "--version", this.version
         );
     }
