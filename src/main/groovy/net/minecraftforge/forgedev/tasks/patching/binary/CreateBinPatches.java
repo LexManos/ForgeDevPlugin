@@ -23,6 +23,7 @@ public abstract class CreateBinPatches extends BinaryPatcherExec {
     @Inject
     public CreateBinPatches() {
         getReverseSrg().convention(false);
+        getOutput().convention(this.getDefaultOutputFile("lzma"));
     }
 
     @Override

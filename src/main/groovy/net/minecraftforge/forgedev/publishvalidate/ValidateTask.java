@@ -114,7 +114,7 @@ public abstract class ValidateTask extends DefaultTask {
     }
 
     private Set<String> getKnown(MavenArtifact artifact) {
-        var url = Constants.FORGE_FILES + artifact.getDirectory() + "meta.json";
+        var url = Constants.FORGE_FILES + artifact.getDirectory() + "/meta.json";
         var jsonStr = DownloadUtils.tryDownloadString(url);
         if (jsonStr == null) {
             getLogger().lifecycle("  No metadata file found at {}", url);

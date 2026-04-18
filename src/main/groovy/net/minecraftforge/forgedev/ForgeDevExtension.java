@@ -144,6 +144,9 @@ public abstract class ForgeDevExtension {
             if (!path.endsWith(".class"))
                 return false;
 
+            if (path.startsWith("mcp/"))
+                return true;
+
             int idx = path.lastIndexOf('$');
             while (idx != -1) {
                 if (blacklist.contains(path.substring(0, idx) + ".class"))
@@ -277,7 +280,7 @@ public abstract class ForgeDevExtension {
     private MCPBaseImpl base;
     public MCPBase getMcpBase() {
         if (this.base == null)
-            return getObjects().newInstance(MCPBaseImpl.class, this.project, this.plugin, "mcpbase");
+            this.base = getObjects().newInstance(MCPBaseImpl.class, this.project, this.plugin, "mcpbase");
         return base;
     }
     public MCPBase mcpBase(Action<? super MCPBase> action) {
@@ -301,7 +304,7 @@ public abstract class ForgeDevExtension {
         return ret;
     }
     public Patches getPatches() {
-        return getPatches("default");
+        return getPatches(Patches.DEFAULT_NAME);
     }
     public Patches patches(String name, Action<? super Patches> action) {
         var ret = this.getPatches(name);
@@ -309,23 +312,29 @@ public abstract class ForgeDevExtension {
         return ret;
     }
     public Patches patches(Action<? super Patches> action) {
-        return patches("default", action);
+        return patches(Patches.DEFAULT_NAME, action);
     }
     // endregion ===========================================================
 
     // region Installer ====================================================
     // =====================================================================
-    public Installer installer() {
+    private Map<String, Installer> installers = new HashMap<>();
+    public Installer getInstaller() {
         return installer(Installer.DEFAULT_NAME);
     }
     public Installer installer(Action<Installer> action) {
         return installer(Installer.DEFAULT_NAME, action);
     }
     public Installer installer(String name) {
-        return installer(name, Util.noop());
+        var ret = this.installers.get(name);
+        if (ret == null) {
+            ret = Installer.register(this.project, this, name);
+            this.installers.put(name, ret);
+        }
+        return ret;
     }
     public Installer installer(String name, Action<Installer> action) {
-        var ret = Installer.register(this.project, this, name);
+        var ret = installer(name);
         action.execute(ret);
         return ret;
     }
@@ -384,7 +393,7 @@ public abstract class ForgeDevExtension {
             this.userDev = this.getObjects().newInstance(UserDev.class, "userdev", this.project, this);
         return userDev;
     }
-    public UserDev userdev(Action<UserDev> action) {
+    public UserDev userDev(Action<UserDev> action) {
         action.execute(getUserDev());
         return getUserDev();
     }
@@ -433,11 +442,31 @@ public abstract class ForgeDevExtension {
         var ret =  this.binaryPatches.get(name);
         if (ret == null) {
             ret = getObjects().newInstance(BinaryPatchesImpl.class, name, this, this.project.getTasks());
+            if (this.base != null) {
+                ret.apply(task -> {
+                    task.getClean().setFrom(this.base.getClasses());
+                });
+                ret.create(task -> {
+                    task.getClean().setFrom(this.base.getClasses());
+                    task.getSrg().setFrom(this.base.getMap2Srg());
+                    task.getReverseSrg().set(true);
+                    task.getSas().setFrom(this.base.getSideAnnotationStrippers());
+                    task.getDirty().setFrom(this.project.getTasks().named("jar"));
+                });
+            }
+
+            var patches = this.patches.get(Patches.DEFAULT_NAME);
+            if (patches != null) {
+                ret.create(task -> {
+                    task.getPatches().from(patches.getPatches());
+                });
+            }
+
             this.binaryPatches.put(name, ret);
         }
         return ret;
     }
-    public  BinaryPatches binaryPatches(String name, Action<? super BinaryPatches> action) {
+    public BinaryPatches binaryPatches(String name, Action<? super BinaryPatches> action) {
         var ret = binaryPatches(name);
         action.execute(ret);
         return ret;

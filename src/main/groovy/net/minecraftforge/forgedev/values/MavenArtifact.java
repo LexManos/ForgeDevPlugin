@@ -8,6 +8,7 @@ import groovy.lang.MissingPropertyException;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.PublishArtifact;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
@@ -65,8 +66,11 @@ public abstract class MavenArtifact implements Serializable {
     }
 
     public static MavenArtifact from(AbstractArchiveTask task) {
-        var project = task.getProject();
-        return project.getObjects().newInstance(MavenArtifact.class, project.getGroup().toString(), project.getName(), project.getVersion().toString(), task.getArchiveClassifier().getOrElse(""), task.getArchiveExtension().get());
+        return from(task.getProject(), task.getArchiveClassifier().getOrElse(""), task.getArchiveExtension().get());
+    }
+
+    public static MavenArtifact from(Project project, String classifier, String extension) {
+        return project.getObjects().newInstance(MavenArtifact.class, project.getGroup().toString(), project.getName(), project.getVersion().toString(), classifier, extension);
     }
 
     @SuppressWarnings("unchecked")
@@ -98,8 +102,14 @@ public abstract class MavenArtifact implements Serializable {
         return objects.newInstance(MavenArtifact.class, Objects.requireNonNull(dependency.getGroup()), dependency.getName(), version, classifier, extension);
     }
 
-    public static Provider<MavenArtifact> from(TaskProvider<? extends AbstractArchiveTask> provider) {
-        return provider.map(MavenArtifact::from);
+    public static Provider<MavenArtifact> from(TaskProvider<?> provider) {
+        return provider.map(task -> {
+            if (task instanceof AbstractArchiveTask archive)
+                return from(archive);
+            if (task instanceof PublishArtifact artifact)
+                return from(task.getProject(), artifact.getClassifier(), artifact.getExtension());
+            throw new IllegalArgumentException("Cannot create MavenArtifact from " + provider + ", Only AbstractArchiveTask or PublishArtifact is supported");
+        });
     }
 
     public static Provider<MavenArtifact> from(Provider<?> provider) {
@@ -233,9 +243,9 @@ public abstract class MavenArtifact implements Serializable {
 
     public String getDirectory() {
         var ret = new StringBuilder();
-        ret.append(this.group.replace('.', '/')).append('/').append(this.name).append('/');
+        ret.append(this.group.replace('.', '/')).append('/').append(this.name);
         if (this.version != null)
-            ret.append(this.version).append('/');
+            ret.append('/').append(this.version);
         return ret.toString();
     }
 
@@ -252,7 +262,7 @@ public abstract class MavenArtifact implements Serializable {
     }
 
     public String getPath() {
-        return getDirectory() + getFileName();
+        return getDirectory() + '/' + getFileName();
     }
 
     @Override

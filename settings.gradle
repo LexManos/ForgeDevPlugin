@@ -49,7 +49,7 @@ dependencyResolutionManagement.versionCatalogs.register('libs') {
     library 'asm-tree', 'org.ow2.asm', 'asm-tree' versionRef 'asm'
     bundle 'asm', ['asm', 'asm-tree']
 
-    library 'srgutils',       'net.minecraftforge', 'srgutils'       version '0.5.14'
+    library 'srgutils',       'net.minecraftforge', 'srgutils'       version '0.6.2'
     library 'fastcsv',        'de.siegmar',         'fastcsv'        version '3.7.0'
     library 'jarjar',         'net.minecraftforge', 'JarJarMetadata' version '0.4.2'
     library 'maven-artifact', 'org.apache.maven',   'maven-artifact' version '3.8.8'

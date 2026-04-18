@@ -33,7 +33,6 @@ import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.TaskProvider;
-import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -44,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public abstract class UserdevConfig extends DefaultTask implements ForgeDevTask {
     private static final String DEFAULT_PATCHES_PREFIX_ORIGINAL = "a/";
@@ -131,13 +131,18 @@ public abstract class UserdevConfig extends DefaultTask implements ForgeDevTask 
             v2.sourceFileCharset = this.getSourceFileEncoding().filter(Util.IS_NOT_BLANK).getOrNull();
             v2.universalFilters = this.getUniversalFilters().get();
             if (v2.universalFilters.isEmpty()) v2.universalFilters = null;
-            v2.extraDependencies = new PatcherConfig.V2.ScopedDependencies();
-            v2.extraDependencies.compileOnly = new ArrayList<>(getExtraCompileDeps().get());
-            v2.extraDependencies.runtimeOnly = new ArrayList<>(getExtraRuntimeDeps().get());
-            v2.extraDependencies.annotationProcessor = new ArrayList<>(getExtraAnnotationProcessorDeps().get());
+            addExtraDependencies(v2);
         }
 
         JsonData.toJson(config, this.getOutput().getAsFile().get());
+    }
+
+    @SuppressWarnings("deprecation")
+    private void addExtraDependencies(PatcherConfig.V2 v2) {
+        v2.extraDependencies = new PatcherConfig.V2.ScopedDependencies();
+        v2.extraDependencies.compileOnly = new ArrayList<>(getExtraCompileDeps().get());
+        v2.extraDependencies.runtimeOnly = new ArrayList<>(getExtraRuntimeDeps().get());
+        v2.extraDependencies.annotationProcessor = new ArrayList<>(getExtraAnnotationProcessorDeps().get());
     }
 
     private boolean isV2() {
@@ -148,11 +153,11 @@ public abstract class UserdevConfig extends DefaultTask implements ForgeDevTask 
             || !"b/".equals(getPatchesModifiedPrefix().getOrNull());
     }
 
-    public void universal(TaskProvider<AbstractArchiveTask> task) {
+    public void universal(TaskProvider<?> task) {
         this.getUniversal().set(MavenArtifact.from(task).map(MavenArtifact::getFullDescriptor));
     }
 
-    public void sources(TaskProvider<AbstractArchiveTask> task) {
+    public void sources(TaskProvider<?> task) {
         this.getSource().set(MavenArtifact.from(task).map(MavenArtifact::getFullDescriptor));
     }
 
@@ -216,7 +221,13 @@ public abstract class UserdevConfig extends DefaultTask implements ForgeDevTask 
     public void runs(Action<? super NamedDomainObjectContainer<? extends RunConfig>> action) {
         var container = this.getObjects().domainObjectContainer(BeanRunConfig.class);
         action.execute(container);
-        this.getRuns().set(container.getAsMap());
+        this.getRuns().set(getProject().provider(() -> {
+            // .getAsMap does not actually resolve anything, so we have to manually force the resolution
+            var ret = new LinkedHashMap<String, RunConfig>();
+            for (var run : container)
+                ret.put(run.getName(), run);
+            return ret;
+        }));
     }
 
     static abstract class BeanRunConfig extends RunConfig implements Named, Serializable {

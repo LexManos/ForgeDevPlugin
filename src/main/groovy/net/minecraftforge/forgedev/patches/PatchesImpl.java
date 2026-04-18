@@ -5,6 +5,7 @@
 package net.minecraftforge.forgedev.patches;
 
 import net.minecraftforge.forgedev.ForgeDevExtension;
+import net.minecraftforge.forgedev.Util;
 import net.minecraftforge.forgedev.base.PatcherBase;
 import net.minecraftforge.forgedev.tasks.patching.diff.ApplyPatches;
 import net.minecraftforge.forgedev.tasks.patching.diff.GeneratePatches;
@@ -30,8 +31,9 @@ public abstract class PatchesImpl implements Patches {
     @Inject
     public PatchesImpl(ForgeDevExtension extension, String name, Project project) {
         this.name = name;
-        this.apply = project.getTasks().register("applyPatches", ApplyPatches.class);
-        this.make = project.getTasks().register("makePatches", GeneratePatches.class);
+        var suffix = DEFAULT_NAME.equals(name) ? "" : Util.capitalize(name);
+        this.apply = project.getTasks().register("applyPatches" + suffix, ApplyPatches.class);
+        this.make = project.getTasks().register("makePatches" + suffix, GeneratePatches.class);
         var buildDir = project.getLayout().getProjectDirectory();
         var updating = extension.getProblems().test("net.minecraftforge.forge.build.updating");
 

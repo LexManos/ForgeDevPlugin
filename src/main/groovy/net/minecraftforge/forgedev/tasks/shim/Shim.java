@@ -86,7 +86,7 @@ public abstract class Shim {
 
     @ApiStatus.Internal
     public static Shim register(Project project, ForgeDevExtension ext, String name) {
-        var base = DownloadDependency.register(project, name + "DownloadBase", Tools.SHIM.getModule().toString());
+        var base = project.getTasks().register(name + "DownloadBase", DownloadDependency.class);
 
         var classpath = project.getTasks().register(name + "Classpath", ShimClasspath.class);
         classpath.configure(task -> task.setGroup("Generation"));
@@ -108,10 +108,16 @@ public abstract class Shim {
             });
 
             // And set the base manifest
-            var baseManifest = baseZip.map(tree -> tree.getFiles().stream().filter(f -> f.getName().equals("MANIFEST.MF")).findFirst().orElseThrow());
+            task.dependsOn(base);
+            var text = project.getResources().getText();
+            var baseManifest = base.flatMap(DownloadDependency::getOutput).map(file -> text.fromArchiveEntry(file, "META-INF/MANIFEST.MF", "utf-8"));
             task.manifest(manifest -> manifest.from(baseManifest));
         });
 
-        return project.getObjects().newInstance(Shim.class, project, name, classpath, jar, base, config);
+        var ret = project.getObjects().newInstance(Shim.class, project, name, classpath, jar, base, config);
+
+        ret.setBase(Tools.SHIM.getModule().toString());
+
+        return ret;
     }
 }

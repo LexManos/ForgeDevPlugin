@@ -156,7 +156,18 @@ public abstract class UserdevCompatibilityImpl implements UserdevCompatibility {
     }
 
     @Override
-    public void setDirty(TaskProvider<AbstractArchiveTask> jarTask) {
-        this.check.configure(task -> task.getInputJar().set(jarTask.flatMap(AbstractArchiveTask::getArchiveFile)));
+    public void setDirty(TaskProvider<?> taskProvider) {
+        this.check.configure(task -> {
+            task.getInputJar().fileProvider(taskProvider.map(t -> {
+                if (t instanceof AbstractArchiveTask jar)
+                    return jar.getArchiveFile().get().getAsFile();
+                return t.getOutputs().getFiles().getSingleFile();
+            }));
+        });
+    }
+
+    @Override
+    public void setDirty(Provider<File> provider) {
+        this.check.configure(task -> task.getInputJar().fileProvider(provider));
     }
 }

@@ -5,6 +5,7 @@
 package net.minecraftforge.forgedev;
 
 import net.minecraftforge.gradleutils.shared.SharedUtil;
+import net.minecraftforge.srgutils.MinecraftVersion;
 import net.minecraftforge.util.hash.HashFunction;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
@@ -34,6 +35,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
@@ -84,8 +87,8 @@ public final class Util extends SharedUtil {
     public static String kebab(String s) {
         var buf = new StringBuilder(s.length());
         for (var chr : s.toCharArray()) {
-            if (chr <= 'A' || chr >= 'Z')
-                buf.append('-').append(chr - 'A');
+            if (chr >= 'A' && chr <= 'Z')
+                buf.append('-').append((char)(chr - 'A'));
             else
                 buf.append(chr);
         }
@@ -196,6 +199,19 @@ public final class Util extends SharedUtil {
             if (e.toString().contains("unable to find valid certification path to requested target"))
                 throw new RuntimeException("Failed to connect to $url: Missing certificate root authority, try updating Java");
             return sneak(e);
+        }
+    }
+
+    private static final Predicate<String> MCP_VERSION = Pattern.compile("-\\d{8}\\.\\d{6}$").asPredicate();
+    private static final MinecraftVersion UNOBFED_START = MinecraftVersion.from("26.1-snapshot-1");
+    public static boolean isObfuscated(String version) {
+        if (MCP_VERSION.test(version))
+            version = version.substring(0, version.length() - 16);
+        try {
+            return MinecraftVersion.from(version).compareTo(UNOBFED_START) < 0;
+        } catch (Exception e) {
+            System.out.println("Failed to parse MC Version: " + version + " Defaulting to obfuscated");
+            return true;
         }
     }
 }

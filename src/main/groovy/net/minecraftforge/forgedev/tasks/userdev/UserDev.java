@@ -6,6 +6,7 @@ package net.minecraftforge.forgedev.tasks.userdev;
 
 import net.minecraftforge.forgedev.ForgeDevExtension;
 import net.minecraftforge.forgedev.Tools;
+import net.minecraftforge.forgedev.Util;
 import net.minecraftforge.forgedev.base.MCPBase;
 import net.minecraftforge.forgedev.base.PatcherBase;
 import net.minecraftforge.forgedev.tasks.SingleFileOutput;
@@ -30,6 +31,7 @@ public abstract class UserDev {
 
     private @Nullable TaskProvider<UserdevConfig> config;
     private @Nullable TaskProvider<CreateBinPatches> binaryPatches;
+    private @Nullable TaskProvider<GeneratePatches> patches;
 
     @Inject
     public UserDev(String name, Project project, ForgeDevExtension extension) {
@@ -77,7 +79,7 @@ public abstract class UserDev {
             var tool = this.extension.getPlugin().getTool(Tools.BINPATCH);
 
             getConfig().configure(task -> {
-                task.getBinpatcherVersion().convention(tool.getModule().toString());
+                task.getBinpatcherVersion().set(tool.getModule().toString());
                 task.getBinpatcherArguments().addAll("--clean", "{clean}", "--output", "{output}", "--apply", "{patch}");
             });
 
@@ -111,6 +113,8 @@ public abstract class UserDev {
             getConfig().configure(task -> task.getMCPConfig().set(mcp.getMcpArtifact()));
             if (this.binaryPatches != null)
                 this.binaryPatches.configure(this::configureBinaryPatches);
+            if (this.patches != null)
+                this.patches.configure(this::configurePatches);
         }
         this.patcherBase = base;
     }
@@ -121,18 +125,38 @@ public abstract class UserDev {
             task.getSrg().setFrom(mcp.getMap2Srg());
             task.getReverseSrg().set(true);
             task.getSas().setFrom(mcp.getSideAnnotationStrippers());
+            task.getDirty().setFrom(this.project.getTasks().named("jar"));
         }
     }
 
-    public void patches(TaskProvider<GeneratePatches> make) {
-        make.configure(task -> task.getAutoHeader().set(false));
-        config(task -> {
-            task.getPatchesOriginalPrefix().set(make.flatMap(GeneratePatches::getBasePathPrefix));
-            task.getPatchesModifiedPrefix().set(make.flatMap(GeneratePatches::getModifiedPathPrefix));
-        });
-        jar(task -> {
-            task.from(project.zipTree(make.flatMap(SingleFileOutput::getOutput)), e -> e.into("patches/"));
-        });
+    public TaskProvider<GeneratePatches> getPatches() {
+        if (this.patches == null) {
+            var gen = this.patches = project.getTasks().register(this.name + "GeneratePatches", GeneratePatches.class);
+            this.patches.configure(task -> {
+                task.getAutoHeader().set(false);
+                task.getExistingOnly().set(true);
+            });
+            config(task -> {
+                task.getPatchesOriginalPrefix().set(gen.flatMap(GeneratePatches::getBasePathPrefix));
+                task.getPatchesModifiedPrefix().set(gen.flatMap(GeneratePatches::getModifiedPathPrefix));
+            });
+            jar(task -> {
+                task.from(project.zipTree(gen.flatMap(SingleFileOutput::getOutput)), e -> e.into("patches/"));
+            });
+            if (this.patcherBase != null)
+                patches.configure(this::configurePatches);
+        }
+        return this.patches;
+    }
+
+    public TaskProvider<GeneratePatches> patches(Action<? super GeneratePatches> action) {
+        getPatches().configure(action);
+        return getPatches();
+    }
+
+    private void configurePatches(GeneratePatches task) {
+        if (this.patcherBase instanceof MCPBase mcp)
+            task.getInput().setFrom(Util.isObfuscated(mcp.getMcpVersion().get()) ? mcp.getUnnamedSources() : mcp.getNamedSources());
     }
 
     // TODO: [ForgeDev][UserDev] CLIENT EXTRA?

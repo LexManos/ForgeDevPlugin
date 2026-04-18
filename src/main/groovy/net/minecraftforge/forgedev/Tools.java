@@ -12,7 +12,7 @@ public final class Tools {
     // EXECUTABLE
     public static final Tool MAVENIZER = Tool.ofForge("mavenizer", "net.minecraftforge:minecraft-mavenizer:0.4.58", 25);
     public static final Tool DIFFPATCH = Tool.of("diffpatch", "io.codechicken:DiffPatch:2.1.0.42:all", Constants.MAVEN_CENTRAL, 8);
-    public static final Tool BINPATCH = Tool.ofForge("binpatcher", "net.minecraftforge:binarypatcher:1.3.1:fatjar", 8);
+    public static final Tool BINPATCH = Tool.ofForge("binpatcher", "net.minecraftforge:binarypatcher:1.3.3:fatjar", 8);
     public static final Tool INSTALLERTOOLS = Tool.ofForge("installertools", "net.minecraftforge:installertools:1.4.4:fatjar", 8);
     public static final Tool INSTALLER = Tool.ofForge("installer", "net.minecraftforge:installer:2.2.9:fatjar", 8);
     public static final Tool SHIM = Tool.ofForge("shim", "net.minecraftforge:bootstrap-shim:2.1.8", 8);

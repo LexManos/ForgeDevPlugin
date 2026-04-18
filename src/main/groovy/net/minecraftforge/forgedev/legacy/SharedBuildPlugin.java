@@ -69,7 +69,6 @@ abstract class SharedBuildPlugin implements Plugin<Project> {
                         task.getName().equals(sourceSet.getSourcesJarTaskName()) ||
                         task.getName().equals(sourceSet.getProcessResourcesTaskName())
                     ) {
-                        System.out.println("Task: " + task.getName() + " " + sourceSet.getProcessResourcesTaskName());
                         task.dependsOn(processResources);
                         return;
                     }

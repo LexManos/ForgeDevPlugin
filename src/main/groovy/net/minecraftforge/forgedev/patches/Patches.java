@@ -12,6 +12,8 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.tasks.TaskProvider;
 
 public interface Patches {
+    String DEFAULT_NAME = "default";
+
     PatcherBase getBase();
     void setBase(PatcherBase base);
 

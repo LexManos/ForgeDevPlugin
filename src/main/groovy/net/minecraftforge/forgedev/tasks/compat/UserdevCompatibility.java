@@ -21,5 +21,6 @@ public interface UserdevCompatibility {
     void setClean(RegularFileProperty clean);
     void setClean(Provider<File> clean);
 
-    void setDirty(TaskProvider<AbstractArchiveTask> jarTask);
+    void setDirty(TaskProvider<?> task);
+    void setDirty(Provider<File> dirty);
 }
