@@ -25,6 +25,7 @@ import net.minecraftforge.forgedev.tasks.userdev.UserDev;
 import net.minecraftforge.forgedev.values.GitVersionValueSource;
 import net.minecraftforge.forgedev.values.MavenArtifact;
 import net.minecraftforge.forgedev.values.MinecraftFiles;
+import org.apache.commons.lang3.Validate;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.Project;
@@ -416,6 +417,11 @@ public abstract class ForgeDevExtension {
         tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME, check -> check.dependsOn(ret));
         return ret;
     }
+    public TaskProvider<ValidateDeprecations> validateDeprecations(TaskProvider<? extends AbstractArchiveTask> jar, Action<ValidateDeprecations> action) {
+        var ret = validateDeprecations(jar);
+        ret.configure(action);
+        return ret;
+    }
     // endregion ===========================================================
 
     // region Compatibility checking =======================================
@@ -458,6 +464,7 @@ public abstract class ForgeDevExtension {
             var patches = this.patches.get(Patches.DEFAULT_NAME);
             if (patches != null) {
                 ret.create(task -> {
+                    task.mustRunAfter(patches.getMake());
                     task.getPatches().from(patches.getPatches());
                 });
             }

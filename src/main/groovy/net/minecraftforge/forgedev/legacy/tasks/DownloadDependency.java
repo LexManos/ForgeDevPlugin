@@ -40,7 +40,6 @@ public abstract class DownloadDependency extends DefaultTask implements SingleFi
         var unpacked = Util.unpack(artifact);
         unpacked = unpacked instanceof Dependency dep && !(unpacked instanceof MinimalExternalModuleDependency) ? dep.copy() : unpacked;
         var dep = getProject().getDependencies().create(unpacked);
-        getProject().getLogger().lifecycle(dep.toString());
         var cfg = getProject().getConfigurations().detachedConfiguration(dep);
         cfg.setTransitive(false);
         this.getInput().setFrom(cfg);

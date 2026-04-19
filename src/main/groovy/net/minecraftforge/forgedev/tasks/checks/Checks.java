@@ -99,7 +99,7 @@ public abstract class Checks {
     public Check<CheckExecs> getExecs() {
         if (this.execs == null) {
             this.execs = check("Execs", CheckExecs.class, task ->
-                task.getBinary().set(tasks.named(Jar.TASK_NAME, Jar.class).flatMap(Jar::getArchiveFile))
+                task.getBinary().set(tasks.named("jar", Jar.class).flatMap(Jar::getArchiveFile))
             );
         }
         return execs;

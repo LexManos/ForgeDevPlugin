@@ -48,8 +48,20 @@ public abstract class LatestForgeVersion implements ValueSource<String, LatestFo
             }
 
             var mcVersion = getParameters().getMinecraftVersion().get();
-            var json = GSON.fromJson(Files.readString(file.toPath(), StandardCharsets.UTF_8), new TypeToken<Map<String, String>>(){});
-            return json.get(mcVersion + "-latest");
+            var jsonStr = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            var json = GSON.fromJson(jsonStr, new TypeToken<Map<String, Object>>(){});
+            @SuppressWarnings("unchecked")
+            var promos = (Map<String, String>)json.get("promos");
+            if (promos == null) {
+                LOGGER.error("Could not find \"promos\" entry in json, Checks disabled:\n{}", jsonStr);
+                return null;
+            }
+            var ret = promos.get(mcVersion + "-latest");
+            if (ret == null)
+                LOGGER.error("Could not find \"{}-latest\" entry in json, Checks disabled:\n{}", mcVersion, jsonStr);
+            else
+                LOGGER.lifecycle("Found latest Forge version: {}", ret);
+            return mcVersion + '-' + ret;
         } catch (Exception e) {
             LOGGER.error("ERROR: Failed to get latest Forge version. Checks using this data will be skipped.", e);
             return null;

@@ -89,7 +89,7 @@ public abstract class UserdevConfig extends DefaultTask implements ForgeDevTask 
         this.getPatchesOriginalPrefix().convention(DEFAULT_PATCHES_PREFIX_ORIGINAL);
         this.getPatchesModifiedPrefix().convention(DEFAULT_PATCHES_PREFIX_MODIFIED);
         this.getSourceFileEncoding().convention(StandardCharsets.UTF_8.name());
-        this.getInject().convention("inject/");
+        this.getInject().convention(""); // ""inject/" add inject(Provider<Folder>) to UserDev in older versions
         this.getPatches().convention("patches/");
     }
 
